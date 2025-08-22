@@ -1,111 +1,77 @@
-name: Firestorm OS Windows Build
+name: Firestorm Build
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-windows:
+  build:
     runs-on: windows-latest
 
+    env:
+      PYTHON_VERSION: '3.10.11'
+      BUILD_DIR: '${{ github.workspace }}\\Firestorm_Build'
+      SCRIPT_DIR: '${{ github.workspace }}\\fs_include'
+      CONFIG: 'ReleaseFS_open'
+      ARCH: '64'
+
     steps:
-    - name: Checkout Code
+    - name: 🧾 Checkout Main Repo
       uses: actions/checkout@v3
 
-    - name: Installiere Chocolatey (falls nicht vorhanden)
-      shell: pwsh
-      run: |
-        if (!(Test-Path "$env:ProgramData\Chocolatey\bin\choco.exe")) {
-          Set-ExecutionPolicy Bypass -Scope Process -Force
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          iex ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-          Start-Sleep -Seconds 30
-          & "$env:ProgramData\Chocolatey\bin\refreshEnv.cmd"
-        }
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Installiere Build-Tools
-      shell: pwsh
-      run: |
-        # Visual Studio 2022 Community mit Toolsets
-        choco install -y --no-progress visualstudio2022community `
-          --package-parameters="--add Microsoft.VisualStudio.Workload.NativeDesktop `
-          --add Microsoft.VisualStudio.Component.VC.14.16.x86.x64 `
-          --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+    - name: 🛠️ Setup Visual Studio Environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
 
-        # Tools installieren
-        choco install -y --no-progress --stop-on-first-failure `
-          cmake `
-          git `
-          python `
-          nsis `
-          cygwin `
-          7zip
-
-        # Cygwin Setup laden und Paket installieren
-        $cygwinSetup = "C:\cygwin64\setup-x86_64.exe"
-        if (!(Test-Path "C:\cygwin64")) {
-          New-Item -ItemType Directory -Path "C:\cygwin64" -Force
-        }
-        if (!(Test-Path $cygwinSetup)) {
-          Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile $cygwinSetup
-        }
-        & $cygwinSetup -q -P patch
-
-    - name: Installiere Autobuild
-      shell: pwsh
+    - name: 📦 Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install autobuild
+        python -m pip install --force-reinstall --no-cache-dir llbase llsd autobuild
 
-    - name: Klone fs-build-variables
-      shell: pwsh
+    - name: 📁 Create Build Directory
       run: |
-        git clone https://github.com/FirestormViewer/fs-build-variables.git Firestorm_Build/fs-build-variables
+        mkdir "%BUILD_DIR%"
+        mkdir "%BUILD_DIR%\\venv"
 
-    - name: Konfiguriere Firestorm
-      shell: pwsh
+    - name: 🔄 Clone Phoenix-Firestorm
       run: |
-        $env:AUTOBUILD_VARIABLES_FILE = "${{ github.workspace }}\Firestorm_Build\fs-build-variables\variables"
-        autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC -DLL_TESTS:BOOL=FALSE -DFMOD:BOOL=OFF -DUSE_OPENAL=ON
+        git clone https://github.com/FirestormViewer/phoenix-firestorm.git "%BUILD_DIR%\\phoenix-firestorm"
 
-    - name: Installiere 3p-Bibliotheken
-      shell: pwsh
+    - name: 🔄 Clone fs-build-variables
       run: |
-        $env:AUTOBUILD_VARIABLES_FILE = "${{ github.workspace }}\Firestorm_Build\fs-build-variables\variables"
-        autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
+        git clone https://github.com/FirestormViewer/fs-build-variables.git "%BUILD_DIR%\\fs-build-variables"
+
+    - name: 🔄 Clone fs-build-firestorm-viewer-german
+      run: |
+        git clone https://github.com/ManfredAabye/fs-build-firestorm-viewer-german.git "%SCRIPT_DIR%"
+
+    - name: 🔧 Copy fs_include into Build
+      run: |
+        xcopy /E /I /Y "%SCRIPT_DIR%" "%BUILD_DIR%\\fs_include"
+
+    - name: 🔧 Replace autobuild.xml
+      run: |
+        copy /Y "%BUILD_DIR%\\fs_include\\autobuild.xml" "%BUILD_DIR%\\phoenix-firestorm\\autobuild.xml"
+
+    - name: 🔧 Configure Build
+      run: |
+        cd /d "%BUILD_DIR%\\phoenix-firestorm"
         autobuild installables remove webrtc
         autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
+        autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
+        autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC -DLL_TESTS:BOOL=FALSE -DFMOD:BOOL=OFF -DUSE_OPENAL=ON
 
-    - name: Starte Build
-      shell: pwsh
+    - name: 🏗️ Build Firestorm
       run: |
-        $env:AUTOBUILD_VARIABLES_FILE = "${{ github.workspace }}\Firestorm_Build\fs-build-variables\variables"
+        cd /d "%BUILD_DIR%\\phoenix-firestorm"
         autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
 
-    - name: Paketieren mit NSIS
-      shell: pwsh
+    - name: 📦 Package Viewer
       run: |
-        $env:AUTOBUILD_VARIABLES_FILE = "${{ github.workspace }}\Firestorm_Build\fs-build-variables\variables"
+        cd /d "%BUILD_DIR%\\phoenix-firestorm"
         autobuild package -A 64 --config-file autobuild.xml
-        makensis.exe installer\firestorm.nsi
-
-    - name: Finde Setup-Dateiname
-      id: find_setup
-      shell: pwsh
-      run: |
-        $file = Get-ChildItem "phoenix-firestorm\build-vc170-64\newview\Release" -Filter "*Setup.exe" | Select-Object -First 1
-        echo "setup_file=$($file.Name)" >> $env:GITHUB_ENV
-
-    - name: Erstelle GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ github.run_number }}
-        name: Firestorm OS Build ${{ github.run_number }}
-        files: phoenix-firestorm/build-vc170-64/newview/Release/${{ env.setup_file }}
-        body: |
-          Firestorm Viewer Build für Windows
-          Channel: WebRTC
-          Architektur: AVX2
-          Version: 7.2.0.78901
-          Installer: ${{ env.setup_file }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

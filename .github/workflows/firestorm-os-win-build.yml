@@ -1,4 +1,4 @@
-name: Firestorm Build
+name: Firestorm OS Windows Build V009
 
 on:
   workflow_dispatch:

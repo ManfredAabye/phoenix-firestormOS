@@ -1,4 +1,4 @@
-name: Firestorm OS Windows WebRTC OpenAL AVX2 Build V010
+name: Firestorm OS Windows WebRTC OpenAL AVX2 Build V011
 
 on:
   workflow_dispatch:
@@ -60,10 +60,10 @@ jobs:
       run: |
         xcopy /E /I /Y "%SCRIPT_DIR%" "%BUILD_DIR%\fs_include"
 
-    - name: 🔧 Replace autobuild.xml
+    - name: 🔧 Replace autobuild.xml (KORRIGIERTER SCHRITT)
       shell: cmd
       run: |
-        copy /Y "%BUILD_DIR%\fs_include\autobuild.xml" "%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
+        copy /Y "%BUILD_DIR%\fs-build-variables\autobuild.xml" "%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
 
     - name: 🔧 Configure Build
       shell: cmd

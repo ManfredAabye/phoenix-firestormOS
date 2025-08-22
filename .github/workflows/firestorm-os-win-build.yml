@@ -7,60 +7,64 @@ jobs:
   build-windows:
     runs-on: windows-latest
 
-    env:
-      BUILD_DIR: ${{ github.workspace }}
-      SCRIPT_DIR: ${{ github.workspace }}/scripts
-      AUTO_BUILD_CONFIG: ${{ github.workspace }}/autobuild.xml
-
     steps:
     - name: 🧾 Checkout Code
       uses: actions/checkout@v3
 
     - name: 🧰 Install Chocolatey & NSIS
+      shell: pwsh
       run: |
         Set-ExecutionPolicy Bypass -Scope Process -Force
         iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
         choco install nsis -y
 
     - name: 🐍 Install Python & Autobuild
+      shell: pwsh
       run: |
         python -m pip install --upgrade pip
         pip install autobuild
 
     - name: 📦 Clone fs-build-variables
+      shell: pwsh
       run: |
         git clone https://github.com/FirestormViewer/fs-build-variables.git Firestorm_Build/fs-build-variables
 
     - name: 🔧 Configure Firestorm
-      env:
-        AUTOBUILD_VARIABLES_FILE: ${{ github.workspace }}/Firestorm_Build/fs-build-variables/variables
+      shell: pwsh
       run: |
+        $env:AUTOBUILD_VARIABLES_FILE = "${{ github.workspace }}\Firestorm_Build\fs-build-variables\variables"
         autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC -DLL_TESTS:BOOL=FALSE -DFMOD:BOOL=OFF -DUSE_OPENAL=ON
 
     - name: 📚 Installiere 3p-Bibliotheken
+      shell: pwsh
       run: |
+        $env:AUTOBUILD_VARIABLES_FILE = "${{ github.workspace }}\Firestorm_Build\fs-build-variables\variables"
         autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
         autobuild installables remove webrtc
         autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
 
-    - name: ⚙️ Konfiguriere Build
-      run: |
-        autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC -DLL_TESTS:BOOL=FALSE -DFMOD:BOOL=OFF -DUSE_OPENAL=ON
-
     - name: 🧱 Starte Build
+      shell: pwsh
       run: |
+        $env:AUTOBUILD_VARIABLES_FILE = "${{ github.workspace }}\Firestorm_Build\fs-build-variables\variables"
         autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
 
     - name: 📦 Paketieren mit NSIS
+      shell: pwsh
       run: |
+        $env:AUTOBUILD_VARIABLES_FILE = "${{ github.workspace }}\Firestorm_Build\fs-build-variables\variables"
         autobuild package -A 64 --config-file autobuild.xml
         makensis.exe installer\firestorm.nsi
 
     - name: 📄 Ausgabe der Konfiguration
-      run: autobuild print --json my-config-file.json
+      shell: pwsh
+      run: |
+        $env:AUTOBUILD_VARIABLES_FILE = "${{ github.workspace }}\Firestorm_Build\fs-build-variables\variables"
+        autobuild print --json my-config-file.json
 
     - name: 🔍 Finde Setup-Dateiname
       id: find_setup
+      shell: pwsh
       run: |
         $file = Get-ChildItem "phoenix-firestorm\build-vc170-64\newview\Release" -Filter "*Setup.exe" | Select-Object -First 1
         echo "setup_file=$($file.Name)" >> $env:GITHUB_ENV

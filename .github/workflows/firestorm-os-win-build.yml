@@ -1,0 +1,84 @@
+name: Firestorm OS Windows Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    env:
+      BUILD_DIR: ${{ github.workspace }}
+      SCRIPT_DIR: ${{ github.workspace }}/scripts
+      AUTO_BUILD_CONFIG: ${{ github.workspace }}/autobuild.xml
+
+    steps:
+    - name: 🧾 Checkout Code
+      uses: actions/checkout@v3
+
+    - name: 🧰 Install Chocolatey & NSIS
+      run: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+        choco install nsis -y
+
+    - name: 🐍 Install Python & Autobuild
+      run: |
+        python -m pip install --upgrade pip
+        pip install autobuild
+
+    - name: 📦 Clone fs-build-variables
+      run: |
+        git clone https://github.com/FirestormViewer/fs-build-variables.git Firestorm_Build/fs-build-variables
+
+    - name: 📁 Kopiere OpenAL DLLs
+      run: |
+        copy scripts\OpenAL32.dll phoenix-firestorm\build-vc170-64\sharedlibs\Release
+        copy scripts\alut.dll     phoenix-firestorm\build-vc170-64\sharedlibs\Release
+        copy scripts\OpenAL32.dll phoenix-firestorm\build-vc170-64\newview\Release
+        copy scripts\alut.dll     phoenix-firestorm\build-vc170-64\newview\Release
+
+    - name: 📚 Installiere 3p-Bibliotheken
+      run: |
+        autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
+        autobuild installables remove webrtc
+        autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
+
+    - name: ⚙️ Konfiguriere Build
+      run: |
+        autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC -DLL_TESTS:BOOL=FALSE -DFMOD:BOOL=OFF -DUSE_OPENAL=ON
+
+    - name: 🧱 Starte Build
+      run: |
+        autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
+
+    - name: 📦 Paketieren mit NSIS
+      run: |
+        xcopy /Y scripts\alut.dll phoenix-firestorm\build-vc170-64\newview\Release
+        xcopy /Y scripts\OpenAL32.dll phoenix-firestorm\build-vc170-64\newview\Release
+        autobuild package -A 64 --config-file autobuild.xml
+        makensis.exe installer\firestorm.nsi
+
+    - name: 📄 Ausgabe der Konfiguration
+      run: autobuild print --json my-config-file.json
+
+    - name: 🔍 Finde Setup-Dateiname
+      id: find_setup
+      run: |
+        $file = Get-ChildItem "phoenix-firestorm\build-vc170-64\newview\Release" -Filter "*Setup.exe" | Select-Object -First 1
+        echo "setup_file=$($file.Name)" >> $env:GITHUB_ENV
+
+    - name: 🚀 Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ github.run_number }}
+        name: Firestorm OS Build ${{ github.run_number }}
+        files: phoenix-firestorm/build-vc170-64/newview/Release/${{ env.setup_file }}
+        body: |
+          🔥 Firestorm Viewer Build für Windows
+          • Channel: WebRTC
+          • Architektur: AVX2
+          • Version: 7.2.0.78901
+          • Enthält NSIS-Installer: `${{ env.setup_file }}`
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

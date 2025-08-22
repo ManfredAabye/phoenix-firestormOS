@@ -11,38 +11,39 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    - name: Installiere Build-Tools
-      shell: pwsh
-      run: |
-        # Visual Studio 2022 Community mit Toolsets
-        choco install -y --no-progress visualstudio2022community `
-          --package-parameters="--add Microsoft.VisualStudio.Workload.NativeDesktop `
-          --add Microsoft.VisualStudio.Component.VC.14.16.x86.x64 `
-          --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+- name: Installiere Build-Tools
+  shell: pwsh
+  run: |
+    # Visual Studio 2022 Community mit Toolsets
+    choco install -y --no-progress visualstudio2022community `
+      --package-parameters="--add Microsoft.VisualStudio.Workload.NativeDesktop `
+      --add Microsoft.VisualStudio.Component.VC.14.16.x86.x64 `
+      --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
 
-        # Chocolatey (falls nicht vorhanden)
-        if (!(Test-Path "$env:ProgramData\Chocolatey\bin\choco.exe")) {
-          powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))"
-          Start-Sleep -Seconds 30
-          & "$env:ProgramData\Chocolatey\bin\refreshEnv.cmd"
-        }
+    # Chocolatey installieren (falls nicht vorhanden)
+    if (!(Test-Path "$env:ProgramData\Chocolatey\bin\choco.exe")) {
+      powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))"
+      Start-Sleep -Seconds 30
+      & "$env:ProgramData\Chocolatey\bin\refreshEnv.cmd"
+    }
 
-        # Tools installieren
-        choco install -y --no-progress --stop-on-first-failure `
-          cmake `
-          git `
-          python `
-          nsis `
-          cygwin `
-          7zip `
-          doxygen
+    # Tools installieren (ohne nsis und doxygen, da problematisch)
+    choco install -y --no-progress --stop-on-first-failure `
+      cmake `
+      git `
+      python `
+      cygwin `
+      7zip
 
-        # Cygwin Setup laden und Paket installieren
-        $cygwinSetup = "C:\cygwin64\setup-x86_64.exe"
-        if (!(Test-Path $cygwinSetup)) {
-          Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile $cygwinSetup
-        }
-        & $cygwinSetup -q -P patch
+    # Cygwin Setup laden und Paket installieren
+    $cygwinSetup = "C:\cygwin64\setup-x86_64.exe"
+    if (!(Test-Path "C:\cygwin64")) {
+      New-Item -ItemType Directory -Path "C:\cygwin64" -Force
+    }
+    if (!(Test-Path $cygwinSetup)) {
+      Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile $cygwinSetup
+    }
+    & $cygwinSetup -q -P patch
 
     - name: Installiere Autobuild
       shell: pwsh

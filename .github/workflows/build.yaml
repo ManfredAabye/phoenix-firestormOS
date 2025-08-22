@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches: ["main", "release/*", "project/*"]
-    tags: ["OpenSim*"]
+    tags: ["Second_Life*"]
 
 jobs:
   # The whole point of the setup job is that we want to set variables once
@@ -16,12 +16,12 @@ jobs:
       configurations: ${{ steps.setvar.outputs.configurations }}
       bugsplat_db: ${{ steps.setvar.outputs.bugsplat_db }}
     env:
-      # Build with a tag like "OpenSim#abcdef0" to generate a release page
+      # Build with a tag like "Second_Life#abcdef0" to generate a release page
       # (used for builds we are planning to deploy).
       # When you want to use a string variable as a workflow YAML boolean, it's
       # important to ensure it's the empty string when false. If you omit || '',
       # its value when false is "false", which is interpreted as true.
-      RELEASE_RUN: ${{ (github.event.inputs.release_run || github.ref_type == 'tag' && startsWith(github.ref_name, 'OpenSim')) && 'Y' || '' }}
+      RELEASE_RUN: ${{ (github.event.inputs.release_run || github.ref_type == 'tag' && startsWith(github.ref_name, 'Second_Life')) && 'Y' || '' }}
       FROM_FORK: ${{ github.event.pull_request.head.repo.fork }}
     steps:
       - name: Set Variables
@@ -42,7 +42,7 @@ jobs:
     needs: setup
     strategy:
       matrix:
-        runner: ${{ fromJson((github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/OpenSim')) && '["windows-large","macos-15-xlarge"]' || '["windows-latest","macos-15"]') }}
+        runner: ${{ fromJson((github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/Second_Life')) && '["windows-large","macos-15-xlarge"]' || '["windows-latest","macos-15"]') }}
         configuration: ${{ fromJson(needs.setup.outputs.configurations) }}
     runs-on: ${{ matrix.runner }}
     outputs:

@@ -17,9 +17,10 @@ jobs:
 
       - name: Batch-Datei in den Firestorm-Ordner herunterladen
         run: |
-          curl -L -o firestorm/2_firestorm_building_V27.bat https://raw.githubusercontent.com/ManfredAabye/fs-build-firestorm-viewer-german/main/2_firestorm_building_V27.bat
+          curl -L -o firestorm/Firestorm_Viewer_Build_Windows_action.bat https://raw.githubusercontent.com/ManfredAabye/fs-build-firestorm-viewer-german/main/Firestorm_Viewer_Build_Windows_action.bat
 
       - name: Batch-Datei ausführen
         run: |
           cd firestorm
-          cmd /c 2_firestorm_building_V27.bat
+          cmd /c Firestorm_Viewer_Build_Windows_action.bat
+

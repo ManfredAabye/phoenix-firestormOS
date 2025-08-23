@@ -1,0 +1,25 @@
+name: Firestorm Viewer Build Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Windows Build mit externer Batch-Datei
+    runs-on: windows-latest
+
+    steps:
+      - name: Firestorm-Quellcode auschecken
+        uses: actions/checkout@v4
+        with:
+          repository: ManfredAabye/phoenix-firestormOS
+          path: firestorm
+
+      - name: Batch-Datei in den Firestorm-Ordner herunterladen
+        run: |
+          curl -L -o firestorm/2_firestorm_building_V27.bat https://raw.githubusercontent.com/ManfredAabye/fs-build-firestorm-viewer-german/main/2_firestorm_building_V27.bat
+
+      - name: Batch-Datei ausführen
+        run: |
+          cd firestorm
+          cmd /c 2_firestorm_building_V27.bat

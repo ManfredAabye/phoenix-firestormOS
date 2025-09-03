@@ -1,1 +1,155 @@
+name: Daily Sync from Upstream
 
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+    
+    - name: Add upstream remote
+      run: |
+        git remote add upstream https://github.com/FirestormViewer/phoenix-firestorm.git || true
+        git remote set-url upstream https://github.com/FirestormViewer/phoenix-firestorm.git
+    
+    - name: Fetch upstream changes
+      run: |
+        git fetch upstream
+        echo "Fetched latest changes from upstream"
+    
+    - name: Check for upstream changes
+      id: check_changes
+      run: |
+        # Get the latest commit from upstream main/master branch
+        upstream_commit=$(git rev-parse upstream/master 2>/dev/null || git rev-parse upstream/main 2>/dev/null || echo "")
+        current_commit=$(git rev-parse HEAD)
+        
+        if [ -z "$upstream_commit" ]; then
+          echo "Could not find upstream main or master branch"
+          exit 1
+        fi
+        
+        if [ "$upstream_commit" = "$current_commit" ]; then
+          echo "No new changes from upstream"
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "New changes detected from upstream"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "upstream_commit=$upstream_commit" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Attempt merge
+      if: steps.check_changes.outputs.has_changes == 'true'
+      id: merge
+      run: |
+        # Try to merge upstream changes
+        upstream_branch=$(git remote show upstream | grep 'HEAD branch' | cut -d' ' -f5)
+        echo "Attempting to merge upstream/$upstream_branch"
+        
+        if git merge upstream/$upstream_branch --allow-unrelated-histories --no-edit; then
+          echo "Merge successful"
+          echo "merge_success=true" >> $GITHUB_OUTPUT
+        else
+          echo "Merge conflicts detected"
+          echo "merge_success=false" >> $GITHUB_OUTPUT
+          git merge --abort
+        fi
+    
+    - name: Push successful merge
+      if: steps.check_changes.outputs.has_changes == 'true' && steps.merge.outputs.merge_success == 'true'
+      run: |
+        git push origin ${{ github.ref_name }}
+        echo "Successfully pushed merged changes"
+    
+    - name: Handle merge conflicts
+      if: steps.check_changes.outputs.has_changes == 'true' && steps.merge.outputs.merge_success == 'false'
+      run: |
+        # Create a new branch for conflict resolution
+        conflict_branch="sync-conflicts-${{ github.run_number }}"
+        git checkout -b $conflict_branch
+        
+        # Get upstream branch name
+        upstream_branch=$(git remote show upstream | grep 'HEAD branch' | cut -d' ' -f5)
+        
+        # Start merge again to create conflict state
+        git merge upstream/$upstream_branch --allow-unrelated-histories --no-edit || true
+        
+        # Add all files (including conflicted ones)
+        git add .
+        
+        # Commit with conflict markers
+        git commit -m "Sync conflicts from upstream/$upstream_branch - requires manual resolution
+
+        This automated sync from FirestormViewer/phoenix-firestorm detected merge conflicts.
+        Please review and resolve the conflicts manually.
+        
+        Upstream commit: ${{ steps.check_changes.outputs.upstream_commit }}
+        Run number: ${{ github.run_number }}
+        
+        Files with conflicts need manual review and resolution."
+        
+        # Push the conflict branch
+        git push origin $conflict_branch
+        
+        echo "CONFLICT_BRANCH=$conflict_branch" >> $GITHUB_ENV
+    
+    - name: Create Pull Request for conflicts
+      if: steps.check_changes.outputs.has_changes == 'true' && steps.merge.outputs.merge_success == 'false'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: pr } = await github.rest.pulls.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `Sync conflicts from upstream (Run #${{ github.run_number }})`,
+            head: process.env.CONFLICT_BRANCH,
+            base: '${{ github.ref_name }}',
+            body: `# Automatic Sync Conflict Resolution Required
+
+          This pull request was automatically created because the daily sync from upstream [FirestormViewer/phoenix-firestorm](https://github.com/FirestormViewer/phoenix-firestorm) encountered merge conflicts.
+
+          ## Details
+          - **Upstream commit**: ${{ steps.check_changes.outputs.upstream_commit }}
+          - **Sync run**: #${{ github.run_number }}
+          - **Conflicts branch**: \`${process.env.CONFLICT_BRANCH}\`
+
+          ## What to do
+          1. Review the files with conflict markers
+          2. Manually resolve all conflicts
+          3. Test the changes thoroughly
+          4. Merge this pull request when ready
+
+          ## Files to review
+          Check all files in this branch for conflict markers (\`<<<<<<<\`, \`=======\`, \`>>>>>>>\`) and resolve them appropriately.
+
+          The automated sync will continue to run daily and will create new conflict PRs if this one remains unresolved.
+          `
+          });
+          
+          console.log(`Created pull request: ${pr.html_url}`);
+    
+    - name: Summary
+      run: |
+        if [ "${{ steps.check_changes.outputs.has_changes }}" = "false" ]; then
+          echo "✅ No changes detected from upstream - repository is up to date"
+        elif [ "${{ steps.merge.outputs.merge_success }}" = "true" ]; then
+          echo "✅ Successfully synced and pushed changes from upstream"
+        else
+          echo "⚠️  Merge conflicts detected - created pull request for manual resolution"
+        fi

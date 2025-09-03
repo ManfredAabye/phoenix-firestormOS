@@ -120,7 +120,7 @@ LLAgentListener::LLAgentListener(LLAgent &agent)
         &LLAgentListener::startFollowPilot,
         llsd::map("reply", LLSD()));
     add("setAutoPilotTarget",
-        "Update target for currently running autopilot:\n"
+        "Update target for currently enabled autopilot:\n"
         "[\"target_global\"]: array of target global {x, y, z} position",
         &LLAgentListener::setAutoPilotTarget);
     add("stopAutoPilot",

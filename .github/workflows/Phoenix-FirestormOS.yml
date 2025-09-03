@@ -11,11 +11,7 @@ jobs:
       PYTHON_VERSION: '3.10.11'
       BUILD_DIR: '${{ github.workspace }}\\Firestorm_Build'
       VENV_DIR: '${{ github.workspace }}\\Firestorm_Build\\venv'
-      AUTOBUILD_INSTALL_DIR: '${{ github.workspace }}\\Firestorm_Build\\packages'
-      ARCH: '64'
-      CONFIG: 'ReleaseFS_open'
       AUTO_BUILD_CONFIG: '${{ github.workspace }}\\Firestorm_Build\\phoenix-firestorm\\autobuild.xml'
-      AUTOBUILD_VARIABLES_FILE: '${{ github.workspace }}\\Firestorm_Build\\fs-build-variables\\variables'
       FS_INCLUDE_SOURCE: '${{ github.workspace }}\\fs_include'
       FS_INCLUDE_DEST: '${{ github.workspace }}\\Firestorm_Build\\fs_include'
       AUTOBUILD_TEMP: '${{ github.workspace }}\\temp'
@@ -26,39 +22,37 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Install Chocolatey and Build Tools
-      shell: cmd
+    - name: Install CMake manually
+      shell: powershell
       run: |
-        if not exist "%ProgramData%\\Chocolatey\\bin\\choco.exe" (
-          echo [INFO] Installiere Chocolatey...
-          powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex (New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')"
-          timeout /t 30
-          call "%ProgramData%\\Chocolatey\\bin\\refreshEnv.cmd"
-        )
+        $url = "https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-windows-x86_64.zip"
+        $zip = "$env:TEMP\\cmake.zip"
+        $dir = "C:\\cmake"
+        Invoke-WebRequest -Uri $url -OutFile $zip
+        Expand-Archive -Path $zip -DestinationPath $dir
+        $bin = "$dir\\cmake-3.29.2-windows-x86_64\\bin"
+        $env:Path += ";$bin"
+        [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Machine)
 
-        choco install -y --no-progress visualstudio2022community ^
-          --package-parameters="--add Microsoft.VisualStudio.Workload.NativeDesktop ^
-          --add Microsoft.VisualStudio.Component.VC.14.16.x86.x64 ^
-          --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-
-        choco install -y --no-progress --stop-on-first-failure ^
-          cmake ^
-          git ^
-          python ^
-          nsis ^
-          cygwin ^
-          7zip ^
-          patch
-
-    - name: Install Doxygen (Fallback via ZIP)
-      shell: cmd
+    - name: Install Doxygen manually
+      shell: powershell
       run: |
-        choco install -y --no-progress doxygen --pre || (
-          echo [WARNUNG] Chocolatey konnte Doxygen nicht installieren. Lade manuell herunter...
-          powershell -Command "Invoke-WebRequest -Uri https://www.doxygen.nl/files/doxygen-1.9.8.windows.x64.bin.zip -OutFile doxygen.zip"
-          powershell -Command "Expand-Archive -Path doxygen.zip -DestinationPath C:\\doxygen"
-          setx PATH "%PATH%;C:\\doxygen\\bin"
-        )
+        $url = "https://www.doxygen.nl/files/doxygen-1.9.8.windows.x64.bin.zip"
+        $zip = "$env:TEMP\\doxygen.zip"
+        $dir = "C:\\doxygen"
+        Invoke-WebRequest -Uri $url -OutFile $zip
+        Expand-Archive -Path $zip -DestinationPath $dir
+        $bin = "$dir\\doxygen-1.9.8\\bin"
+        $env:Path += ";$bin"
+        [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Machine)
+
+    - name: Install Git manually
+      shell: powershell
+      run: |
+        $url = "https://github.com/git-for-windows/git/releases/download/v2.43.0.windows.1/Git-2.43.0-64-bit.exe"
+        $exe = "$env:TEMP\\git.exe"
+        Invoke-WebRequest -Uri $url -OutFile $exe
+        Start-Process -FilePath $exe -ArgumentList "/VERYSILENT" -Wait
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -82,16 +76,8 @@ jobs:
     - name: Clone Firestorm repositories
       shell: cmd
       run: |
-        if not exist "%BUILD_DIR%\\phoenix-firestorm\\.git" (
-          git clone https://github.com/FirestormViewer/phoenix-firestorm.git "%BUILD_DIR%\\phoenix-firestorm"
-        ) else (
-          git -C "%BUILD_DIR%\\phoenix-firestorm" pull
-        )
-        if not exist "%BUILD_DIR%\\fs-build-variables\\.git" (
-          git clone https://github.com/FirestormViewer/fs-build-variables.git "%BUILD_DIR%\\fs-build-variables"
-        ) else (
-          git -C "%BUILD_DIR%\\fs-build-variables" pull
-        )
+        git clone https://github.com/FirestormViewer/phoenix-firestorm.git "%BUILD_DIR%\\phoenix-firestorm"
+        git clone https://github.com/FirestormViewer/fs-build-variables.git "%BUILD_DIR%\\fs-build-variables"
 
     - name: Copy fs_include and skin files
       shell: cmd

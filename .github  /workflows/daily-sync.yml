@@ -1,1 +1,258 @@
+name: Daily Sync with Upstream
 
+on:
+  schedule:
+    # Run daily at 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync even if no changes detected'
+        required: false
+        default: 'false'
+        type: boolean
+      upstream_branch:
+        description: 'Upstream branch to sync from'
+        required: false
+        default: 'master'
+        type: string
+
+env:
+  UPSTREAM_REPO_FIRESTORM: 'FirestormViewer/phoenix-firestorm'
+  UPSTREAM_REPO_VARIABLES: 'FirestormViewer/fs-build-variables'
+  TARGET_BRANCH: 'master'
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "GitHub Actions Bot"
+        git config --global user.email "actions@github.com"
+
+    - name: Add upstream remotes
+      run: |
+        git remote add upstream-firestorm https://github.com/${{ env.UPSTREAM_REPO_FIRESTORM }}.git || true
+        git remote add upstream-variables https://github.com/${{ env.UPSTREAM_REPO_VARIABLES }}.git || true
+        git remote -v
+
+    - name: Fetch upstream changes
+      run: |
+        git fetch upstream-firestorm
+        git fetch upstream-variables
+
+    - name: Check for Firestorm updates
+      id: check-firestorm
+      run: |
+        UPSTREAM_BRANCH="${{ github.event.inputs.upstream_branch || 'master' }}"
+        LOCAL_COMMIT=$(git rev-parse HEAD)
+        UPSTREAM_COMMIT=$(git rev-parse upstream-firestorm/$UPSTREAM_BRANCH)
+        
+        echo "local_commit=$LOCAL_COMMIT" >> $GITHUB_OUTPUT
+        echo "upstream_commit=$UPSTREAM_COMMIT" >> $GITHUB_OUTPUT
+        
+        if [ "$LOCAL_COMMIT" != "$UPSTREAM_COMMIT" ]; then
+          echo "has_updates=true" >> $GITHUB_OUTPUT
+          echo "🔄 Updates found in upstream Firestorm repository"
+          
+          # Get commit count and summary
+          COMMIT_COUNT=$(git rev-list --count $LOCAL_COMMIT..upstream-firestorm/$UPSTREAM_BRANCH)
+          echo "commit_count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+          
+          # Get recent commits summary
+          RECENT_COMMITS=$(git log --oneline --max-count=10 upstream-firestorm/$UPSTREAM_BRANCH ^$LOCAL_COMMIT || echo "No commits to show")
+          echo "recent_commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$RECENT_COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        else
+          echo "has_updates=false" >> $GITHUB_OUTPUT
+          echo "✅ No updates found in upstream Firestorm repository"
+        fi
+
+    - name: Create sync branch
+      if: steps.check-firestorm.outputs.has_updates == 'true' || github.event.inputs.force_sync == 'true'
+      run: |
+        SYNC_BRANCH="sync/upstream-$(date +%Y%m%d-%H%M%S)"
+        echo "sync_branch=$SYNC_BRANCH" >> $GITHUB_ENV
+        git checkout -b $SYNC_BRANCH
+
+    - name: Merge upstream changes
+      if: steps.check-firestorm.outputs.has_updates == 'true' || github.event.inputs.force_sync == 'true'
+      id: merge
+      run: |
+        UPSTREAM_BRANCH="${{ github.event.inputs.upstream_branch || 'master' }}"
+        
+        # Attempt to merge upstream changes
+        if git merge upstream-firestorm/$UPSTREAM_BRANCH --no-edit; then
+          echo "merge_success=true" >> $GITHUB_OUTPUT
+          echo "✅ Successfully merged upstream changes"
+        else
+          echo "merge_success=false" >> $GITHUB_OUTPUT
+          echo "❌ Merge conflicts detected"
+          
+          # Save conflict information
+          git status --porcelain | grep "^UU" > conflicts.txt || true
+          CONFLICT_FILES=$(cat conflicts.txt | wc -l)
+          echo "conflict_files=$CONFLICT_FILES" >> $GITHUB_OUTPUT
+          
+          # Abort the merge
+          git merge --abort
+          
+          # Create a conflict report
+          echo "Merge conflicts in the following files:" > conflict_report.txt
+          cat conflicts.txt >> conflict_report.txt
+          
+          echo "conflict_report<<EOF" >> $GITHUB_OUTPUT
+          cat conflict_report.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Push sync branch
+      if: (steps.check-firestorm.outputs.has_updates == 'true' || github.event.inputs.force_sync == 'true') && steps.merge.outputs.merge_success == 'true'
+      run: |
+        git push origin ${{ env.sync_branch }}
+
+    - name: Create Pull Request
+      if: (steps.check-firestorm.outputs.has_updates == 'true' || github.event.inputs.force_sync == 'true') && steps.merge.outputs.merge_success == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+          const syncBranch = process.env.sync_branch;
+          const commitCount = '${{ steps.check-firestorm.outputs.commit_count }}';
+          const recentCommits = `${{ steps.check-firestorm.outputs.recent_commits }}`;
+          
+          const title = `🔄 Sync with upstream Firestorm (${commitCount} commits)`;
+          const body = `## Daily Sync with Upstream Firestorm
+          
+          This PR synchronizes our fork with the latest changes from the upstream FirestormViewer/phoenix-firestorm repository.
+          
+          ### Summary
+          - **Commits to sync**: ${commitCount}
+          - **Upstream branch**: ${{ github.event.inputs.upstream_branch || 'master' }}
+          - **Target branch**: ${{ env.TARGET_BRANCH }}
+          
+          ### Recent Upstream Commits
+          \`\`\`
+          ${recentCommits}
+          \`\`\`
+          
+          ### Review Checklist
+          - [ ] Verify all changes are compatible with our customizations
+          - [ ] Test build process works correctly
+          - [ ] Check for any breaking changes
+          - [ ] Ensure Phoenix-FirestormOS specific features still work
+          
+          ---
+          *This PR was automatically created by the daily sync workflow.*`;
+          
+          try {
+            const result = await github.rest.pulls.create({
+              owner,
+              repo,
+              title,
+              body,
+              head: syncBranch,
+              base: '${{ env.TARGET_BRANCH }}',
+              maintainer_can_modify: true
+            });
+            
+            console.log(`Created PR #${result.data.number}: ${result.data.html_url}`);
+            
+            // Add labels
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: result.data.number,
+              labels: ['sync', 'upstream', 'automated']
+            });
+            
+          } catch (error) {
+            console.error('Error creating PR:', error);
+            core.setFailed(`Failed to create pull request: ${error.message}`);
+          }
+
+    - name: Create Issue for Merge Conflicts
+      if: (steps.check-firestorm.outputs.has_updates == 'true' || github.event.inputs.force_sync == 'true') && steps.merge.outputs.merge_success == 'false'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+          const conflictFiles = '${{ steps.merge.outputs.conflict_files }}';
+          const conflictReport = `${{ steps.merge.outputs.conflict_report }}`;
+          
+          const title = `🚨 Merge conflicts in upstream sync (${conflictFiles} files)`;
+          const body = `## Merge Conflicts Detected During Sync
+          
+          The daily sync with upstream Firestorm repository failed due to merge conflicts.
+          
+          ### Details
+          - **Conflicted files**: ${conflictFiles}
+          - **Upstream branch**: ${{ github.event.inputs.upstream_branch || 'master' }}
+          - **Target branch**: ${{ env.TARGET_BRANCH }}
+          
+          ### Conflict Report
+          \`\`\`
+          ${conflictReport}
+          \`\`\`
+          
+          ### Resolution Required
+          Manual intervention is needed to resolve these conflicts:
+          
+          1. Checkout the repository locally
+          2. Add upstream remote: \`git remote add upstream https://github.com/${{ env.UPSTREAM_REPO_FIRESTORM }}.git\`
+          3. Fetch upstream: \`git fetch upstream\`
+          4. Merge upstream changes: \`git merge upstream/${{ github.event.inputs.upstream_branch || 'master' }}\`
+          5. Resolve conflicts manually
+          6. Commit and push the resolved changes
+          
+          ---
+          *This issue was automatically created by the daily sync workflow.*`;
+          
+          try {
+            const result = await github.rest.issues.create({
+              owner,
+              repo,
+              title,
+              body,
+              labels: ['sync', 'conflicts', 'urgent']
+            });
+            
+            console.log(`Created issue #${result.data.number}: ${result.data.html_url}`);
+            
+          } catch (error) {
+            console.error('Error creating issue:', error);
+            core.setFailed(`Failed to create issue: ${error.message}`);
+          }
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "## Daily Sync Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Repository**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Upstream**: ${{ env.UPSTREAM_REPO_FIRESTORM }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: ${{ github.event.inputs.upstream_branch || 'master' }}" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ steps.check-firestorm.outputs.has_updates }}" == "true" ]; then
+          echo "- **Status**: 🔄 Updates found (${{ steps.check-firestorm.outputs.commit_count }} commits)" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.merge.outputs.merge_success }}" == "true" ]; then
+            echo "- **Action**: ✅ Pull request created for sync" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Action**: ❌ Issue created for merge conflicts" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "- **Status**: ✅ No updates needed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action**: 🛌 No action required" >> $GITHUB_STEP_SUMMARY
+        fi

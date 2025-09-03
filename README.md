@@ -20,6 +20,12 @@ Build instructions for each operating system can be found using the links below 
 - [Mac](doc/building_macos.md)
 - [Linux](doc/building_linux.md)
 
+## Automated Processes
+
+This repository includes automated workflows to help maintain the codebase:
+
+- [Daily Sync Workflow](docs/daily-sync-workflow.md) - Automatically synchronizes with upstream Firestorm repository
+
 > [!NOTE]
 > We do not provide support for compiling the viewer or issues resulting from using a self-compiled viewer. However, there is a self-compilers group within Second Life that can be joined to ask questions related to compiling the viewer: [Firestorm Self Compilers](https://tinyurl.com/firestorm-self-compilers)
 

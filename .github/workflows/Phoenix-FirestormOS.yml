@@ -50,11 +50,8 @@ jobs:
           7zip ^
           doxygen
 
-        if exist "C:\\cygwin64\\cygwinsetup.exe" (
-          C:\\cygwin64\\cygwinsetup.exe -q -P patch
-        ) else (
-          echo [WARNUNG] Cygwin-Setup nicht gefunden. „patch“-Paket konnte nicht installiert werden.
-        )
+          cygwinsetup.exe -q -P patch
+
 
     - name: Set up Python
       uses: actions/setup-python@v4

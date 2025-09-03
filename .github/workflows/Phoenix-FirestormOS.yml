@@ -48,10 +48,17 @@ jobs:
           nsis ^
           cygwin ^
           7zip ^
-          doxygen
+          patch
 
-          cygwinsetup.exe -q -P patch
-
+    - name: Install Doxygen (Fallback via ZIP)
+      shell: cmd
+      run: |
+        choco install -y --no-progress doxygen --pre || (
+          echo [WARNUNG] Chocolatey konnte Doxygen nicht installieren. Lade manuell herunter...
+          powershell -Command "Invoke-WebRequest -Uri https://www.doxygen.nl/files/doxygen-1.9.8.windows.x64.bin.zip -OutFile doxygen.zip"
+          powershell -Command "Expand-Archive -Path doxygen.zip -DestinationPath C:\\doxygen"
+          setx PATH "%PATH%;C:\\doxygen\\bin"
+        )
 
     - name: Set up Python
       uses: actions/setup-python@v4

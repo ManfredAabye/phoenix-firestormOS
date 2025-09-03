@@ -26,7 +26,8 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Install Chocolatey
+    - name: Install Chocolatey and Build Tools
+      shell: cmd
       run: |
         if not exist "%ProgramData%\\Chocolatey\\bin\\choco.exe" (
           echo [INFO] Installiere Chocolatey...
@@ -35,15 +36,11 @@ jobs:
           call "%ProgramData%\\Chocolatey\\bin\\refreshEnv.cmd"
         )
 
-    - name: Install Visual Studio 2022 Community mit Komponenten
-      run: |
         choco install -y --no-progress visualstudio2022community ^
           --package-parameters="--add Microsoft.VisualStudio.Workload.NativeDesktop ^
           --add Microsoft.VisualStudio.Component.VC.14.16.x86.x64 ^
           --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
 
-    - name: Installiere Build-Tools via Chocolatey
-      run: |
         choco install -y --no-progress --stop-on-first-failure ^
           cmake ^
           git ^
@@ -53,9 +50,11 @@ jobs:
           7zip ^
           doxygen
 
-    - name: Installiere Cygwin-Paket „patch“
-      run: |
-        C:\\cygwin64\\cygwinsetup.exe -q -P patch
+        if exist "C:\\cygwin64\\cygwinsetup.exe" (
+          C:\\cygwin64\\cygwinsetup.exe -q -P patch
+        ) else (
+          echo [WARNUNG] Cygwin-Setup nicht gefunden. „patch“-Paket konnte nicht installiert werden.
+        )
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -63,11 +62,13 @@ jobs:
         python-version: ${{ env.PYTHON_VERSION }}
 
     - name: Create directories
+      shell: cmd
       run: |
         mkdir "%BUILD_DIR%"
         mkdir "%AUTOBUILD_TEMP%"
 
     - name: Set up virtual environment
+      shell: cmd
       run: |
         python -m venv "%VENV_DIR%"
         call "%VENV_DIR%\\Scripts\\activate.bat"
@@ -75,6 +76,7 @@ jobs:
         python -m pip install --force-reinstall --no-cache-dir llbase llsd autobuild
 
     - name: Clone Firestorm repositories
+      shell: cmd
       run: |
         if not exist "%BUILD_DIR%\\phoenix-firestorm\\.git" (
           git clone https://github.com/FirestormViewer/phoenix-firestorm.git "%BUILD_DIR%\\phoenix-firestorm"
@@ -88,6 +90,7 @@ jobs:
         )
 
     - name: Copy fs_include and skin files
+      shell: cmd
       run: |
         xcopy /E /I /Y "%FS_INCLUDE_SOURCE%" "%FS_INCLUDE_DEST%\\"
         xcopy /y fs_include\\vivox_logo.png Firestorm_Build\\phoenix-firestorm\\indra\\newview\\skins\\default\\textures\\3p_icons\\
@@ -97,15 +100,18 @@ jobs:
         xcopy /E /I /Y fs_include\\Assimp.cmake Firestorm_Build\\phoenix-firestorm\\indra\\cmake
 
     - name: Install Python requirements
+      shell: cmd
       run: |
         call "%VENV_DIR%\\Scripts\\activate.bat"
         python -m pip install -r "%BUILD_DIR%\\phoenix-firestorm\\requirements.txt"
 
     - name: Copy autobuild.xml
+      shell: cmd
       run: |
         copy /Y "%FS_INCLUDE_SOURCE%\\autobuild.xml" "%BUILD_DIR%\\phoenix-firestorm\\autobuild.xml"
 
     - name: Setup Visual Studio environment
+      shell: cmd
       run: |
         set "VS2022BAT="
         for %%D in ("C:\\Program Files\\Microsoft Visual Studio\\2022\\Community") do (
@@ -116,6 +122,7 @@ jobs:
         call "%VS2022BAT%" x64
 
     - name: Install Autobuild packages
+      shell: cmd
       run: |
         call "%VENV_DIR%\\Scripts\\activate.bat"
         autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
@@ -125,6 +132,7 @@ jobs:
         autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
 
     - name: Configure and build
+      shell: cmd
       run: |
         autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
         autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose

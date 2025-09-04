@@ -44,14 +44,7 @@ jobs:
               call "%ProgramData%\Chocolatey\bin\refreshEnv.cmd"
           )
 
-          choco install -y --no-progress --stop-on-first-failure ^
-            cmake ^
-            git ^
-            python ^
-            nsis ^
-            cygwin ^
-            7zip ^
-            doxygen
+          choco install -y --no-progress --stop-on-first-failure cmake git python nsis cygwin 7zip doxygen
 
           C:\cygwin64\cygwinsetup.exe -q -P patch
 

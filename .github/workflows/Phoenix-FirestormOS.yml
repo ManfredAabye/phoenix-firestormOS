@@ -19,8 +19,9 @@ jobs:
           @echo off
           setlocal enabledelayedexpansion
 
-          set "SCRIPT_DIR=%CD%"
           set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+          call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set "SCRIPT_DIR=%CD%"          
           set "PYTHON_VERSION=3.10.11"
           set "BUILD_DIR=%SCRIPT_DIR%\Firestorm_Build"
           set "VENV_DIR=%BUILD_DIR%\venv"

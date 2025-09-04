@@ -25,7 +25,7 @@ jobs:
         run: |
           choco install -y --no-progress visualstudio2022community --package-parameters="--add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.14.16.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
 
-          choco install -y --no-progress cmake git python nsis cygwin 7zip doxygen
+          choco install -y --no-progress cmake git python nsis cygwin 7zip
 
           if exist "C:\cygwin64\cygwinsetup.exe" (
               C:\cygwin64\cygwinsetup.exe -q -P patch

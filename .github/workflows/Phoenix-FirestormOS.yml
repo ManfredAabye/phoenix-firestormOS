@@ -62,8 +62,8 @@ jobs:
     - name: Create directories
       shell: cmd
       run: |
-        mkdir "%BUILD_DIR%"
-        mkdir "%AUTOBUILD_TEMP%"
+        IF NOT EXIST "%BUILD_DIR%" mkdir "%BUILD_DIR%"
+        IF NOT EXIST "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
 
     - name: Set up virtual environment
       shell: cmd

@@ -89,12 +89,6 @@ jobs:
               xcopy /E /I /Y "%FS_INCLUDE_SOURCE%" "%FS_INCLUDE_DEST%\" >nul
           )
 
-          if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release\" (
-              copy /Y "%SCRIPT_DIR%\fs_include\OpenAL32.dll" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release\" >nul
-              copy /Y "%SCRIPT_DIR%\fs_include\alut.dll" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release\" >nul
-              copy /Y "%SCRIPT_DIR%\fs_include\featuretable.txt" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release\" >nul
-          )
-
           set "AUTOBUILD_VSVER=170"
           python -m pip install -r "%BUILD_DIR%\phoenix-firestorm\requirements.txt"
 

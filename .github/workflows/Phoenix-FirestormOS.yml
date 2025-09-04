@@ -24,7 +24,16 @@ jobs:
           setlocal enabledelayedexpansion
 
           set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+          set "GIT_BIN=%ProgramFiles%\Git\usr\bin"
+          if exist "%GIT_BIN%\link.exe" (
+              ren "%GIT_BIN%\link.exe" glink.exe
+              echo Git link.exe wurde erfolgreich in glink.exe umbenannt.
+          ) else (
+              echo Git link.exe nicht gefunden. Kein Umbenennen nötig.
+          )
+
           call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+          
           set "SCRIPT_DIR=%CD%"          
           set "PYTHON_VERSION=3.10.11"
           set "BUILD_DIR=%SCRIPT_DIR%\Firestorm_Build"

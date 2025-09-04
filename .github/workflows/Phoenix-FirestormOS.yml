@@ -118,10 +118,4 @@ jobs:
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
 
-          if not exist "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release" (
-              xcopy /Y alut.dll %SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release
-              xcopy /Y OpenAL32.dll %SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release
-              autobuild package -A 64 --config-file autobuild.xml
-          )
-
           dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"

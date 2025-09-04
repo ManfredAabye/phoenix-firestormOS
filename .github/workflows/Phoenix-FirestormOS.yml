@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  setup:
+    uses: ./.github/workflows/serverinstall.yml
+
   build:
+    needs: setup
     runs-on: windows-latest
     defaults:
       run:

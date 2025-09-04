@@ -22,37 +22,52 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Install CMake manually
+    - name: Check and install CMake
       shell: powershell
       run: |
-        $url = "https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-windows-x86_64.zip"
-        $zip = "$env:TEMP\\cmake.zip"
-        $dir = "C:\\cmake"
-        Invoke-WebRequest -Uri $url -OutFile $zip
-        Expand-Archive -Path $zip -DestinationPath $dir
-        $bin = "$dir\\cmake-3.29.2-windows-x86_64\\bin"
-        $env:Path += ";$bin"
-        [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Machine)
+        if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+          Write-Host "🔧 CMake nicht gefunden. Installation wird gestartet..."
+          $url = "https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-windows-x86_64.zip"
+          $zip = "$env:TEMP\\cmake.zip"
+          $dir = "C:\\cmake"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $dir
+          $bin = "$dir\\cmake-3.29.2-windows-x86_64\\bin"
+          $env:Path += ";$bin"
+          [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Machine)
+        } else {
+          Write-Host "✅ CMake ist bereits installiert: $(cmake --version)"
+        }
 
-    - name: Install Doxygen manually
+    - name: Check and install Doxygen
       shell: powershell
       run: |
-        $url = "https://www.doxygen.nl/files/doxygen-1.9.8.windows.x64.bin.zip"
-        $zip = "$env:TEMP\\doxygen.zip"
-        $dir = "C:\\doxygen"
-        Invoke-WebRequest -Uri $url -OutFile $zip
-        Expand-Archive -Path $zip -DestinationPath $dir
-        $bin = "$dir\\doxygen-1.9.8\\bin"
-        $env:Path += ";$bin"
-        [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Machine)
+        if (-not (Get-Command doxygen -ErrorAction SilentlyContinue)) {
+          Write-Host "🔧 Doxygen nicht gefunden. Installation wird gestartet..."
+          $url = "https://www.doxygen.nl/files/doxygen-1.9.8.windows.x64.bin.zip"
+          $zip = "$env:TEMP\\doxygen.zip"
+          $dir = "C:\\doxygen"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $dir
+          $bin = "$dir\\doxygen-1.9.8\\bin"
+          $env:Path += ";$bin"
+          [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Machine)
+        } else {
+          Write-Host "✅ Doxygen ist bereits installiert: $(doxygen --version)"
+        }
 
-    - name: Install Git manually
+    - name: Check and install Git
       shell: powershell
       run: |
-        $url = "https://github.com/git-for-windows/git/releases/download/v2.43.0.windows.1/Git-2.43.0-64-bit.exe"
-        $exe = "$env:TEMP\\git.exe"
-        Invoke-WebRequest -Uri $url -OutFile $exe
-        Start-Process -FilePath $exe -ArgumentList "/VERYSILENT" -Wait
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+          Write-Host "🔧 Git nicht gefunden. Installation wird gestartet..."
+          $url = "https://github.com/git-for-windows/git/releases/download/v2.43.0.windows.1/Git-2.43.0-64-bit.exe"
+          $exe = "$env:TEMP\\git.exe"
+          Invoke-WebRequest -Uri $url -OutFile $exe
+          Start-Process -FilePath $exe -ArgumentList "/VERYSILENT" -Wait
+        } else {
+          Write-Host "✅ Git ist bereits installiert: $(git --version)"
+        }
 
     - name: Set up Python
       uses: actions/setup-python@v4

@@ -22,38 +22,52 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Create directories
+      shell: cmd
+      run: |
+        IF NOT EXIST "%BUILD_DIR%" mkdir "%BUILD_DIR%"
+        IF NOT EXIST "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
+
     - name: Check and install CMake
       shell: powershell
       run: |
+        $baseDir = "${{ github.workspace }}"
+        $cmakeDir = Join-Path $baseDir "cmake-3.29.2-windows-x86_64"
+        $cmakeBin = Join-Path $cmakeDir "bin"
+
         if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
           Write-Host "🔧 CMake nicht gefunden. Installation wird gestartet..."
           $url = "https://github.com/Kitware/CMake/releases/download/v3.29.2/cmake-3.29.2-windows-x86_64.zip"
-          $zip = "$env:TEMP\\cmake.zip"
-          $dir = "C:\\cmake"
+          $zip = Join-Path $baseDir "cmake.zip"
           Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath $dir
-          $bin = "$dir\\cmake-3.29.2-windows-x86_64\\bin"
-          $env:Path += ";$bin"
-          [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Machine)
+          Expand-Archive -Path $zip -DestinationPath $baseDir -Force
+          $env:Path = "$cmakeBin;" + $env:Path
+          [System.Environment]::SetEnvironmentVariable("Path", $env:Path, [System.EnvironmentVariableTarget]::Process)
+          Write-Host "✅ CMake wurde installiert"
         } else {
-          Write-Host "✅ CMake ist bereits installiert: $(cmake --version)"
+          $version = cmake --version
+          Write-Host "✅ CMake ist bereits installiert: $version"
         }
 
     - name: Check and install Doxygen
       shell: powershell
       run: |
+        $baseDir = "${{ github.workspace }}"
+        $doxygenDir = Join-Path $baseDir "doxygen-1.9.8.windows.x64.bin"
+        $doxygenBin = Join-Path $doxygenDir "bin"
+
         if (-not (Get-Command doxygen -ErrorAction SilentlyContinue)) {
           Write-Host "🔧 Doxygen nicht gefunden. Installation wird gestartet..."
           $url = "https://www.doxygen.nl/files/doxygen-1.9.8.windows.x64.bin.zip"
-          $zip = "$env:TEMP\\doxygen.zip"
-          $dir = "C:\\doxygen"
+          $zip = Join-Path $baseDir "doxygen.zip"
           Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath $dir
-          $bin = "$dir\\doxygen-1.9.8\\bin"
-          $env:Path += ";$bin"
-          [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Machine)
+          Expand-Archive -Path $zip -DestinationPath $baseDir -Force
+          $env:Path = "$doxygenBin;" + $env:Path
+          [System.Environment]::SetEnvironmentVariable("Path", $env:Path, [System.EnvironmentVariableTarget]::Process)
+          Write-Host "✅ Doxygen wurde installiert"
         } else {
-          Write-Host "✅ Doxygen ist bereits installiert: $(doxygen --version)"
+          $version = doxygen --version
+          Write-Host "✅ Doxygen ist bereits installiert: $version"
         }
 
     - name: Check and install Git
@@ -64,21 +78,18 @@ jobs:
           $url = "https://github.com/git-for-windows/git/releases/download/v2.43.0.windows.1/Git-2.43.0-64-bit.exe"
           $exe = "$env:TEMP\\git.exe"
           Invoke-WebRequest -Uri $url -OutFile $exe
-          Start-Process -FilePath $exe -ArgumentList "/VERYSILENT" -Wait
+          Start-Process -FilePath $exe -ArgumentList "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES" -Wait
+          # Git wird automatisch zum PATH hinzugefügt
+          Write-Host "✅ Git wurde installiert"
         } else {
-          Write-Host "✅ Git ist bereits installiert: $(git --version)"
+          $version = git --version
+          Write-Host "✅ Git ist bereits installiert: $version"
         }
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Create directories
-      shell: cmd
-      run: |
-        IF NOT EXIST "%BUILD_DIR%" mkdir "%BUILD_DIR%"
-        IF NOT EXIST "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
 
     - name: Set up virtual environment
       shell: cmd
@@ -91,40 +102,79 @@ jobs:
     - name: Clone Firestorm repositories
       shell: cmd
       run: |
-        git clone https://github.com/FirestormViewer/phoenix-firestorm.git "%BUILD_DIR%\\phoenix-firestorm"
-        git clone https://github.com/FirestormViewer/fs-build-variables.git "%BUILD_DIR%\\fs-build-variables"
+        if not exist "%BUILD_DIR%\\phoenix-firestorm" (
+          git clone https://github.com/FirestormViewer/phoenix-firestorm.git "%BUILD_DIR%\\phoenix-firestorm"
+        )
+        if not exist "%BUILD_DIR%\\fs-build-variables" (
+          git clone https://github.com/FirestormViewer/fs-build-variables.git "%BUILD_DIR%\\fs-build-variables"
+        )
 
     - name: Copy fs_include and skin files
       shell: cmd
       run: |
-        xcopy /E /I /Y "%FS_INCLUDE_SOURCE%" "%FS_INCLUDE_DEST%\\"
-        xcopy /y fs_include\\vivox_logo.png Firestorm_Build\\phoenix-firestorm\\indra\\newview\\skins\\default\\textures\\3p_icons\\
-        xcopy /E /I /Y Skin\\skins.xml Firestorm_Build\\phoenix-firestorm\\indra\\newview\\skins
-        xcopy /E /I /Y Skin\\singularity Firestorm_Build\\phoenix-firestorm\\indra\\newview\\skins\\singularity
-        xcopy /E /I /Y fs_include\\OPENAL.cmake Firestorm_Build\\phoenix-firestorm\\indra\\cmake
-        xcopy /E /I /Y fs_include\\Assimp.cmake Firestorm_Build\\phoenix-firestorm\\indra\\cmake
+        if not exist "%FS_INCLUDE_DEST%" mkdir "%FS_INCLUDE_DEST%"
+        if exist "%FS_INCLUDE_SOURCE%" (
+          xcopy /E /I /Y "%FS_INCLUDE_SOURCE%" "%FS_INCLUDE_DEST%\\"
+        )
+        if not exist "%BUILD_DIR%\\phoenix-firestorm\\indra\\newview\\skins\\default\\textures\\3p_icons" (
+          mkdir "%BUILD_DIR%\\phoenix-firestorm\\indra\\newview\\skins\\default\\textures\\3p_icons"
+        )
+        if exist "fs_include\\vivox_logo.png" (
+          xcopy /Y "fs_include\\vivox_logo.png" "%BUILD_DIR%\\phoenix-firestorm\\indra\\newview\\skins\\default\\textures\\3p_icons\\"
+        )
+        if not exist "%BUILD_DIR%\\phoenix-firestorm\\indra\\newview\\skins" (
+          mkdir "%BUILD_DIR%\\phoenix-firestorm\\indra\\newview\\skins"
+        )
+        if exist "Skin\\skins.xml" (
+          xcopy /Y "Skin\\skins.xml" "%BUILD_DIR%\\phoenix-firestorm\\indra\\newview\\skins\\"
+        )
+        if not exist "%BUILD_DIR%\\phoenix-firestorm\\indra\\newview\\skins\\singularity" (
+          mkdir "%BUILD_DIR%\\phoenix-firestorm\\indra\\newview\\skins\\singularity"
+        )
+        if exist "Skin\\singularity" (
+          xcopy /E /I /Y "Skin\\singularity" "%BUILD_DIR%\\phoenix-firestorm\\indra\\newview\\skins\\singularity\\"
+        )
+        if not exist "%BUILD_DIR%\\phoenix-firestorm\\indra\\cmake" (
+          mkdir "%BUILD_DIR%\\phoenix-firestorm\\indra\\cmake"
+        )
+        if exist "fs_include\\OPENAL.cmake" (
+          xcopy /Y "fs_include\\OPENAL.cmake" "%BUILD_DIR%\\phoenix-firestorm\\indra\\cmake\\"
+        )
+        if exist "fs_include\\Assimp.cmake" (
+          xcopy /Y "fs_include\\Assimp.cmake" "%BUILD_DIR%\\phoenix-firestorm\\indra\\cmake\\"
+        )
 
     - name: Install Python requirements
       shell: cmd
       run: |
         call "%VENV_DIR%\\Scripts\\activate.bat"
-        python -m pip install -r "%BUILD_DIR%\\phoenix-firestorm\\requirements.txt"
+        if exist "%BUILD_DIR%\\phoenix-firestorm\\requirements.txt" (
+          python -m pip install -r "%BUILD_DIR%\\phoenix-firestorm\\requirements.txt"
+        )
 
     - name: Copy autobuild.xml
       shell: cmd
       run: |
-        copy /Y "%FS_INCLUDE_SOURCE%\\autobuild.xml" "%BUILD_DIR%\\phoenix-firestorm\\autobuild.xml"
+        if exist "%FS_INCLUDE_SOURCE%\\autobuild.xml" (
+          copy /Y "%FS_INCLUDE_SOURCE%\\autobuild.xml" "%BUILD_DIR%\\phoenix-firestorm\\autobuild.xml"
+        )
 
     - name: Setup Visual Studio environment
       shell: cmd
       run: |
         set "VS2022BAT="
-        for %%D in ("C:\\Program Files\\Microsoft Visual Studio\\2022\\Community") do (
+        for %%D in ("C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise", "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional", "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community") do (
           if exist "%%~D\\VC\\Auxiliary\\Build\\vcvarsall.bat" (
             set "VS2022BAT=%%~D\\VC\\Auxiliary\\Build\\vcvarsall.bat"
           )
         )
-        call "%VS2022BAT%" x64
+        if defined VS2022BAT (
+          echo "Visual Studio gefunden: %VS2022BAT%"
+          call "%VS2022BAT%" x64
+        ) else (
+          echo "Fehler: Visual Studio 2022 nicht gefunden!"
+          exit 1
+        )
 
     - name: Install Autobuild packages
       shell: cmd
@@ -139,5 +189,6 @@ jobs:
     - name: Configure and build
       shell: cmd
       run: |
+        call "%VENV_DIR%\\Scripts\\activate.bat"
         autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
         autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose

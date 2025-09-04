@@ -1,7 +1,7 @@
 name: Server Setup
 
 on:
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
   setup:

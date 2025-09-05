@@ -1,25 +1,32 @@
-name: GitHub Release Firestorm
+name: GitHub Release FirestormOS-WebRTC
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.extract_version.outputs.version }}
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Run build script
+      - name: Generate build_data.json
+        shell: pwsh
         run: |
-          # Beispiel: Erzeuge build_data.json
           New-Item -ItemType Directory -Path Firestorm_Build/phoenix-firestorm/build-vc170-64 -Force
           $data = @{ Version = "1.2.3"; Timestamp = (Get-Date).ToString("s") }
           $data | ConvertTo-Json | Set-Content Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json
 
-      - name: Save build_data.json as artifact
+      - name: Extract version
+        id: extract_version
+        shell: pwsh
+        run: |
+          $json = Get-Content Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json | ConvertFrom-Json
+          echo "::set-output name=version::$($json.Version)"
+
+      - name: Upload build_data.json
         uses: actions/upload-artifact@v3
         with:
           name: build-metadata
@@ -29,20 +36,36 @@ jobs:
     runs-on: windows-latest
     needs: build
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Download build_data.json artifact
+      - name: Download build_data.json
         uses: actions/download-artifact@v3
         with:
           name: build-metadata
+          path: Firestorm_Build/phoenix-firestorm/build-vc170-64
 
       - name: Extract version from build_data.json
         id: extract_version
         shell: pwsh
         run: |
-          $json = Get-Content build_data.json | ConvertFrom-Json
+          $jsonPath = "Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json"
+          if (!(Test-Path $jsonPath)) {
+            Write-Error "build_data.json nicht gefunden unter $jsonPath"
+          }
+          $json = Get-Content $jsonPath | ConvertFrom-Json
           echo "version=$($json.Version)" >> $env:GITHUB_ENV
 
-      - name: Use version in release step
-        run: echo "Releasing version $env:version"
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag -a ${{ env.version }} -m "Release ${{ env.version }}"
+          git push origin ${{ env.version }}
+
+      - name: Upload Release to GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.version }}
+          name: "Phoenix-FirestormOS AVX2 Build ${{ env.version }}"
+          files: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/Phoenix-FirestormOS-WebRTC_AVX2-${{ env.version }}_Setup.exe

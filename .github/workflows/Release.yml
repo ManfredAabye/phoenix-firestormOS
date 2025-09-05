@@ -1,29 +1,21 @@
-name: Test Release Only
+name: Create FirestormOS_WebRTC Release
 
 on:
   workflow_dispatch:
-    inputs:
-      test_file:
-        description: 'Test Setup File'
-        required: true
-        default: 'Phoenix-FirestormOS-WebRTC_AVX2-7-2-2-79265_Setup.exe'
-        type: string
 
 jobs:
-  test-release:
+  create-release:
     runs-on: windows-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Create Test Setup File
-        run: type nul > "${{ github.event.inputs.test_file }}"
-        shell: cmd
-
-      - name: Test GitHub Release
-        run: |
-          echo Setup File: ${{ github.event.inputs.test_file }}
-          echo Would create release for build-${{ github.run_number }}
-        shell: cmd
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Phoenix-FirestormOS Build ${{ github.run_number }}"
+          body: "Automatic build #${{ github.run_number }}"
+          files: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/Phoenix-FirestormOS-WebRTC_AVX2-*-Setup.exe

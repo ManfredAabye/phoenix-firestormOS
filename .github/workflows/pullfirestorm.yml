@@ -1,0 +1,46 @@
+name: Auto Pull from Firestorm Repository
+on:
+  schedule:
+    - cron: '0 * * * *'  # Jede Stunde zur 0. Minute
+  workflow_dispatch:      # Manuelles Trigger
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout eigenes Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Firestorm Remote hinzufügen
+        run: |
+          git remote add firestorm https://github.com/FirestormViewer/phoenix-firestorm.git
+          git fetch firestorm main
+
+      - name: Check für Änderungen
+        id: check_changes
+        run: |
+          if ! git diff --quiet HEAD firestorm/main; then
+            echo "changes_detected=true" >> $GITHUB_OUTPUT
+            echo "✅ Änderungen gefunden"
+          else
+            echo "changes_detected=false" >> $GITHUB_OUTPUT
+            echo "❌ Keine Änderungen gefunden"
+          fi
+
+      - name: Merge Änderungen
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git merge --no-edit firestorm/main
+          git push origin main
+
+      - name: Starte Build Workflow bei Änderungen
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: Phoenix-FirestormOS.yml
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -131,31 +131,21 @@ jobs:
 
           @REM Oberhalb darf nichts verändert werden.
       
-      # ARTIFACT UPLOAD FÜR RELEASE
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: firestorm-build-${{ github.run_number }}
-          path: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/
-          retention-days: 1
-
-  # SEPARATER RELEASE JOB (auf Ubuntu)
-  create-release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: firestorm-build-${{ github.run_number }}
-          path: ./release-files
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: $(date +'%Y-%m-%d %H:%M')
-          name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 Windows $(date +'%Y-%m-%d %H:%M')"
-          body: "Automatisch erstellter Windows Build vom $(date +'%Y-%m-%d %H:%M')"
-          files: ./release-files/Phoenix-FirestormOS-WebRTC_AVX2-*-Setup.exe
+          create-release:
+            needs: build
+            runs-on: windows-latest  # Wichtig: Windows bleiben!
+            steps:
+              - name: Download Build Artifact
+                uses: actions/download-artifact@v4
+                with:
+                  name: firestorm-build-${{ github.run_number }}
+                  path: .\release-files
+          
+              - name: Create GitHub Release
+                uses: softprops/action-gh-release@v1
+                env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                with:
+                  tag_name: build-${{ github.run_number }}
+                  name: "Phoenix-FirestormOS Build ${{ github.run_number }}"
+                  files: .\release-files\Phoenix-FirestormOS-WebRTC_AVX2-*-Setup.exe

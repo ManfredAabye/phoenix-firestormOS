@@ -18,14 +18,12 @@ jobs:
 
       - name: Create Test Setup File
         run: |
-          @echo off
           echo Creating test file: %{{ github.event.inputs.test_file }}
           echo. > "%{{ github.event.inputs.test_file }}"
           dir *.exe
 
       - name: Test GitHub Release
         run: |
-          @echo off
           echo Testing release creation...
           echo Setup File: %{{ github.event.inputs.test_file }}
           echo GITHUB_RUN_NUMBER: %GITHUB_RUN_NUMBER%

@@ -1,4 +1,4 @@
-name: Build and Release
+name: GitHub Release Firestorm
 
 on:
   push:

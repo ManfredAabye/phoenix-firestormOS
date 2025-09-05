@@ -129,23 +129,44 @@ jobs:
 
           dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
 
+      # Oberhalb darf nichts verändert werden.
+      
+      # ✅ NEUE SCHRITTE NACH DEM BUILD
+      - name: Read Build Metadata
+        id: build_meta
+        run: |
+          $buildData = Get-Content "$env:SCRIPT_DIR\Firestorm_Build\phoenix-firestorm\build-vc170-64\build_data.json" | ConvertFrom-Json
+          $executableName = $buildData.Executable
+          $version = $buildData.Version
+          $channel = $buildData.Channel
+          echo "executable_name=$executableName" >> $env:GITHUB_OUTPUT
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "channel=$channel" >> $env:GITHUB_OUTPUT
+          echo "Detected executable: $executableName"
+          echo "Version: $version"
+          echo "Channel: $channel"
+        shell: pwsh
+
       - name: Verify Build Output
         run: |
-          if exist "Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release\FirestormOS.exe" (
-            echo "✅ Build successful - FirestormOS.exe found"
-          ) else (
-            echo "❌ Build failed - FirestormOS.exe not found"
+          $executable = "${{ steps.build_meta.outputs.executable_name }}"
+          if (Test-Path "Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release\$executable") {
+            echo "✅ Build successful - $executable found"
+          } else {
+            echo "❌ Build failed - $executable not found"
             exit 1
-          )
+          }
+        shell: pwsh
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: firestorm-build-${{ github.run_number }}
-          path: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/
+          path: |
+            Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/
+            Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json
           retention-days: 7
 
-  # ✅ NEU: Release Job (separater Job)
   create-release:
     needs: build
     runs-on: ubuntu-latest
@@ -156,18 +177,39 @@ jobs:
           name: firestorm-build-${{ github.run_number }}
           path: ./release-files
 
-      - name: List Release Files
-        run: ls -la ./release-files/
+      - name: Read Build Metadata
+        id: release_meta
+        run: |
+          build_data=$(cat ./release-files/build_data.json)
+          executable_name=$(echo "$build_data" | jq -r '.Executable')
+          version=$(echo "$build_data" | jq -r '.Version')
+          channel=$(echo "$build_data" | jq -r '.Channel')
+          echo "executable_name=$executable_name" >> $GITHUB_OUTPUT
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "channel=$channel" >> $GITHUB_OUTPUT
+          echo "Detected: $executable_name (Version: $version, Channel: $channel)"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: build-${{ github.run_number }}
-          name: "Phoenix-FirestormOS Build ${{ github.run_number }}"
+          tag_name: release-${{ github.run_number }}
+          name: "Phoenix-FirestormOS ${{ steps.release_meta.outputs.channel }} v${{ steps.release_meta.outputs.version }}"
+          body: |
+            Automatically built Firestorm Viewer
+            Version: ${{ steps.release_meta.outputs.version }}
+            Channel: ${{ steps.release_meta.outputs.channel }}
+            Build: ${{ github.run_number }}
           draft: false
           prerelease: true
           files: |
-            ./release-files/FirestormOS.exe
+            ./release-files/${{ steps.release_meta.outputs.executable_name }}
             ./release-files/*.dll
+
+      - name: Show Release Info
+        run: |
+          echo "✅ Release created successfully!"
+          echo "Executable: ${{ steps.release_meta.outputs.executable_name }}"
+          echo "Version: ${{ steps.release_meta.outputs.version }}"
+          echo "Channel: ${{ steps.release_meta.outputs.channel }}"

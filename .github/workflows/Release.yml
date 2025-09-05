@@ -1,37 +1,48 @@
-name: GitHub FirestormOS Release
+name: Build and Release
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Run build script
+        run: |
+          # Beispiel: Erzeuge build_data.json
+          New-Item -ItemType Directory -Path Firestorm_Build/phoenix-firestorm/build-vc170-64 -Force
+          $data = @{ Version = "1.2.3"; Timestamp = (Get-Date).ToString("s") }
+          $data | ConvertTo-Json | Set-Content Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json
+
+      - name: Save build_data.json as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-metadata
+          path: Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json
+
   release:
     runs-on: windows-latest
-
+    needs: build
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: Extract version from build_data.json
-      id: extract_version
-      shell: pwsh
-      run: |
-        $jsonPath = "Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json"
-        if (!(Test-Path $jsonPath)) {
-          Write-Error "build_data.json nicht gefunden unter $jsonPath"
-        }
-        $json = Get-Content $jsonPath | ConvertFrom-Json
-        echo "version=$($json.Version)" >> $env:GITHUB_ENV
+      - name: Download build_data.json artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build-metadata
 
-    - name: Create Git tag
-      run: |
-        git config user.name "github-actions"
-        git config user.email "github-actions@github.com"
-        git tag -a ${{ env.version }} -m "Release ${{ env.version }}"
-        git push origin ${{ env.version }}
+      - name: Extract version from build_data.json
+        id: extract_version
+        shell: pwsh
+        run: |
+          $json = Get-Content build_data.json | ConvertFrom-Json
+          echo "version=$($json.Version)" >> $env:GITHUB_ENV
 
-    - name: Upload Release to GitHub
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ env.version }}
-        name: "Phoenix-FirestormOS AVX2 Build ${{ env.version }}"
-        files: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/Phoenix-FirestormOS-WebRTC_AVX2-${{ env.version }}_Setup.exe
+      - name: Use version in release step
+        run: echo "Releasing version $env:version"

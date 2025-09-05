@@ -1,0 +1,26 @@
+# In releaser.yml:
+on:
+  workflow_call:
+    inputs:
+      run_number:
+        required: true
+        type: number
+      build_path:
+        required: true
+        type: string
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: build-${{ inputs.run_number }}
+          name: "Phoenix-FirestormOS Build ${{ inputs.run_number }}"
+          files: ${{ inputs.build_path }}/*

@@ -1,7 +1,7 @@
-name: Firestorm Release
+name: GitHub FirestormOS Release
 
 on:
-  workflow_dispatch:  # Manuell auslösbar
+  workflow_dispatch:
 
 jobs:
   release:
@@ -9,14 +9,17 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Extract version from build_data.json
       id: extract_version
       shell: pwsh
       run: |
-        dir "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
-        $json = Get-Content Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json | ConvertFrom-Json
+        $jsonPath = "Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json"
+        if (!(Test-Path $jsonPath)) {
+          Write-Error "build_data.json nicht gefunden unter $jsonPath"
+        }
+        $json = Get-Content $jsonPath | ConvertFrom-Json
         echo "version=$($json.Version)" >> $env:GITHUB_ENV
 
     - name: Create Git tag
@@ -31,4 +34,4 @@ jobs:
       with:
         tag_name: ${{ env.version }}
         name: "Phoenix-FirestormOS AVX2 Build ${{ env.version }}"
-        files: Release/Phoenix-FirestormOS-WebRTC_AVX2-${{ env.version }}_Setup.exe
+        files: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/Phoenix-FirestormOS-WebRTC_AVX2-${{ env.version }}_Setup.exe

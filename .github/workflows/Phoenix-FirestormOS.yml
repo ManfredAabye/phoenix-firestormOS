@@ -165,6 +165,7 @@ jobs:
           path: |
             Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/
             Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json
+            Firestorm_Build/phoenix-firestorm/build-vc170-64/*Setup*.exe
           retention-days: 7
 
   create-release:

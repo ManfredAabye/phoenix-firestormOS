@@ -146,6 +146,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/your_build.exe
+          asset_path: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/FirestormOS.exe
+          asset_name: FirestormOS.exe
+          asset_content_type: application/octet-stream
           asset_name: your_build.exe
           asset_content_type: application/octet-stream

@@ -1,26 +1,30 @@
-# In releaser.yml:
+name: Release Only
+
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
-      run_number:
-        required: true
-        type: number
-      build_path:
+      build_version:
+        description: 'Build version number'
         required: true
         type: string
 
 jobs:
-  create-release:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firestorm-build
+          path: ./release-files
 
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: build-${{ inputs.run_number }}
-          name: "Phoenix-FirestormOS Build ${{ inputs.run_number }}"
-          files: ${{ inputs.build_path }}/*
+          tag_name: release-${{ github.event.inputs.build_version }}
+          name: "Firestorm Release ${{ github.event.inputs.build_version }}"
+          draft: false
+          prerelease: false
+          files: ./release-files/*

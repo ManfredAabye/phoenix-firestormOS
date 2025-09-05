@@ -17,19 +17,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create Test Setup File
-        run: |
-          echo Creating test file: %{{ github.event.inputs.test_file }}
-          echo. > "%{{ github.event.inputs.test_file }}"
-          dir *.exe
+        run: type nul > "${{ github.event.inputs.test_file }}"
 
       - name: Test GitHub Release
         run: |
-          echo Testing release creation...
-          echo Setup File: %{{ github.event.inputs.test_file }}
-          echo GITHUB_RUN_NUMBER: %GITHUB_RUN_NUMBER%
-          echo GITHUB_REPOSITORY: %GITHUB_REPOSITORY%
-          
-          @REM Test curl command (trockenlauf)
-          echo curl -X POST -H "Authorization: token %GITHUB_TOKEN%" https://api.github.com/repos/%GITHUB_REPOSITORY%/releases
+          echo "Setup File: ${{ github.event.inputs.test_file }}"
+          echo "Would create release for build-${{ github.run_number }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

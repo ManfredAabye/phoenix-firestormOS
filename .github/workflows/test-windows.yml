@@ -1,0 +1,24 @@
+name: Test Windows Echo
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Ausgabe eines Testtexts
+        run: echo Dies ist eine test yml
+
+      - name: Aktuelles Verzeichnis anzeigen
+        run: echo %CD%
+
+      - name: Aktuelles Verzeichnis anzeigen
+        run: |
+            echo Dies ist noch ein test yml
+            echo %CD%
+            dir

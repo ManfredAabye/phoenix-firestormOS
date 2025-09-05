@@ -1,4 +1,4 @@
-name: Test Windows Echo
+name: Test Windows Test
 
 on:
   workflow_dispatch:
@@ -21,4 +21,5 @@ jobs:
         run: |
             echo Dies ist noch ein test yml
             echo %CD%
+            cd ..
             dir

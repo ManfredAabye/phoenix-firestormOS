@@ -1,0 +1,31 @@
+name: Test GitHub Release
+
+on:
+  workflow_dispatch:  # Manuell auslösbar
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Create dummy file
+      run: |
+        mkdir -p release-files
+        echo "Dies ist ein Test." > release-files/Test-Setup.exe
+
+    - name: Create Git tag
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git tag -a v0.0.1 -m "Test Release"
+        git push origin v0.0.1
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v0.0.1
+        name: "Test Release v0.0.1"
+        files: release-files/Test-Setup.exe

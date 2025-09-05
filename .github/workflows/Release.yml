@@ -15,7 +15,7 @@ jobs:
       id: extract_version
       shell: pwsh
       run: |
-        dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
+        dir "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
         $json = Get-Content Firestorm_Build/phoenix-firestorm/build-vc170-64/build_data.json | ConvertFrom-Json
         echo "version=$($json.Version)" >> $env:GITHUB_ENV
 

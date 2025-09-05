@@ -18,10 +18,12 @@ jobs:
 
       - name: Create Test Setup File
         run: type nul > "${{ github.event.inputs.test_file }}"
+        shell: cmd
 
       - name: Test GitHub Release
         run: |
-          echo "Setup File: ${{ github.event.inputs.test_file }}"
-          echo "Would create release for build-${{ github.run_number }}"
+          echo Setup File: ${{ github.event.inputs.test_file }}
+          echo Would create release for build-${{ github.run_number }}
+        shell: cmd
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

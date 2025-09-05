@@ -129,23 +129,16 @@ jobs:
 
           @REM dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
 
-          @REM Oberhalb darf nichts verändert werden.
-      
-          create-release:
-            needs: build
-            runs-on: windows-latest  # Wichtig: Windows bleiben!
-            steps:
-              - name: Download Build Artifact
-                uses: actions/download-artifact@v4
-                with:
-                  name: firestorm-build-${{ github.run_number }}
-                  path: .\release-files
+          @REM Oberhalb darf nichts verändert werden, wir befinden uns im fucking CMD bereich!!!
+
+          @REM Release erstellen nach erfolgreichem Build
+          for /f "delims=" %%i in ('dir /b "%OUTPUT_DIR%\*Setup*.exe"') do (
+              echo ✅ Setup-Datei gefunden: %%i
+              echo ::set-output name=setup_file::%%i
+          )
           
-              - name: Create GitHub Release
-                uses: softprops/action-gh-release@v1
-                env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                with:
-                  tag_name: build-${{ github.run_number }}
-                  name: "Phoenix-FirestormOS Build ${{ github.run_number }}"
-                  files: .\release-files\Phoenix-FirestormOS-WebRTC_AVX2-*-Setup.exe
+          @REM GitHub Release via curl erstellen
+          curl -L -X POST -H "Authorization: token %GITHUB_TOKEN%" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/%GITHUB_REPOSITORY%/releases -d "{\"tag_name\":\"build-%GITHUB_RUN_NUMBER%\",\"name\":\"Phoenix-FirestormOS Build %GITHUB_RUN_NUMBER%\",\"body\":\"Automatischer Build\"}"
+          
+          echo ✅ GitHub Release erstellt!
+

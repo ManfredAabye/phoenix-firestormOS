@@ -155,7 +155,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: build-${{ github.run_number }}
-          name: "Phoenix-FirestormOS Build ${{ github.run_number }}"
-          body: "Automatisch erstellter Build"
-          files: ./release-files/*
+          tag_name: $(date +'%Y-%m-%d %H:%M')
+          name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 Windows $(date +'%Y-%m-%d %H:%M')"
+          body: "Automatisch erstellter Windows Build vom $(date +'%Y-%m-%d %H:%M')"
+          files: ./release-files/Phoenix-FirestormOS-WebRTC_AVX2-*-Setup.exe

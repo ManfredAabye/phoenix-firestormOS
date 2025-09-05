@@ -129,11 +129,45 @@ jobs:
 
           dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
 
-          create-release:
-            needs: build
-            runs-on: ubuntu-latest
-            uses: ./.github/workflows/releaser.yml
-            with:
-              run_number: ${{ github.run_number }}
-              build_path: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/
-            secrets: inherit
+      - name: Verify Build Output
+        run: |
+          if exist "Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release\FirestormOS.exe" (
+            echo "✅ Build successful - FirestormOS.exe found"
+          ) else (
+            echo "❌ Build failed - FirestormOS.exe not found"
+            exit 1
+          )
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firestorm-build-${{ github.run_number }}
+          path: Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/
+          retention-days: 7
+
+  # ✅ NEU: Release Job (separater Job)
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firestorm-build-${{ github.run_number }}
+          path: ./release-files
+
+      - name: List Release Files
+        run: ls -la ./release-files/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Phoenix-FirestormOS Build ${{ github.run_number }}"
+          draft: false
+          prerelease: true
+          files: |
+            ./release-files/FirestormOS.exe
+            ./release-files/*.dll

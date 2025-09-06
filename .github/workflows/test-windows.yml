@@ -21,5 +21,14 @@ jobs:
         run: |
             echo Dies ist noch ein test yml
             echo %CD%
-            cd D:/
             dir
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Phoenix-FirestormOS-WebRTC_AVX2-Build ${{ github.run_number }}"
+          body: "Automatic build"
+          files: phoenix-firestormOS/phoenix-firestormOS/Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/*Setup.exe

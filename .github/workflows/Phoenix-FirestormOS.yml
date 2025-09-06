@@ -126,46 +126,35 @@ jobs:
 
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
-
-          echo %OUTPUT_DIR% > output_path.txt
-
-          @REM Oberhalb darf nichts verändert werden
-
-          
-      - name: Lese Output-Verzeichnis
-        id: read_output
-        shell: bash
-        run: |
-          OUTPUT_DIR=$(cat output_path.txt | tr -d '\r')
-          echo "output_dir=$OUTPUT_DIR" >> $GITHUB_OUTPUT
-          
-      - name: Extrahiere Tag aus Dateiname
-        id: extract_tag
+      
+      - name: Extrahiere Setup-Datei und Tag
+        id: extract
         shell: bash
         run: |
           RELEASE_DIR="Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release"
-          SETUP_FILE=$(ls $RELEASE_DIR/*Setup.exe | head -n 1)
+          SETUP_FILE=$(ls "$RELEASE_DIR"/*Setup.exe | head -n 1)
+      
+          if [ ! -f "$SETUP_FILE" ]; then
+            echo "Setup-Datei nicht gefunden!"
+            exit 1
+          fi
+      
           BASENAME=$(basename "$SETUP_FILE")
-          
-          # Extrahiere Versionsnummer aus Dateiname
           VERSION=$(echo "$BASENAME" | grep -oP 'Phoenix-FirestormOS-WebRTC_AVX2-\K[0-9.-]+(?=_Setup\.exe)')
-          
-          # Optional: Bindestriche durch Punkte ersetzen
           TAGNAME="${VERSION//-/.}"
-          
-          echo "Tagname ist: $TAGNAME"
+      
+          echo "Setup-Datei: $SETUP_FILE"
+          echo "Tagname: $TAGNAME"
+      
+          echo "setup_file=$SETUP_FILE" >> $GITHUB_OUTPUT
           echo "tag_name=$TAGNAME" >> $GITHUB_OUTPUT
-
-          # files: phoenix-firestormOS/phoenix-firestormOS/Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/*Setup.exe
-
-      - name: Create GitHub Release
+      
+      - name: Erstelle GitHub Release
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.extract_tag.outputs.tag_name }}
-          name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 ${{ steps.extract_tag.outputs.tag_name }}"
-          body: "Automatic build"
-          files: |
-            Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/*Setup.exe
-            ${{ steps.read_output.outputs.output_dir }}/*Setup.exe
+          tag_name: ${{ steps.extract.outputs.tag_name }}
+          name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 ${{ steps.extract.outputs.tag_name }}"
+          body: "Automatischer Build-Release"
+          files: ${{ steps.extract.outputs.setup_file }}

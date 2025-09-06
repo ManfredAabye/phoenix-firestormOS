@@ -2,7 +2,7 @@ name: Auto Pull from Firestorm Repository
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Jede Stunde zur 0. Minute
+    - cron: '0 5 * * *'  # jeden Morgen 5 Uhr 0 5 * * *
   workflow_dispatch:
 
 jobs:

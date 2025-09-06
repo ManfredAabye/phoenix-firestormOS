@@ -44,7 +44,8 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git merge --no-edit firestorm/${{ steps.get_default_branch.outputs.default_branch }}
-          git push origin main
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          git push origin $CURRENT_BRANCH
 
       - name: Starte Build Workflow bei Änderungen
         if: steps.check_changes.outputs.changes_detected == 'true'

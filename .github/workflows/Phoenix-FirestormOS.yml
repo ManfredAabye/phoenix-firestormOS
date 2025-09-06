@@ -129,15 +129,9 @@ jobs:
 
           echo %OUTPUT_DIR% > output_path.txt
 
-          @REM Teste Verzeichnisse durch ausgabe:
-          echo script_dir ausgabe:
-          dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
-          echo build_dir ausgabe:
-          dir /b "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
+          @REM Oberhalb darf nichts verändert werden
 
-          @REM Oberhalb darf nichts verändert werden, wir befinden uns noch im CMD bereich der Build wurde erstellt und trägt den Namen (Platzhalter=*): Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe
-
-          # Suche den Namen Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe in "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release" und ermittle die Nummer tausche die Bindestriche - gegeb Punkte aus und schreibe diese in die Variable TAGNAME und verwende sie als tag_name 
+          
       - name: Lese Output-Verzeichnis
         id: read_output
         shell: bash

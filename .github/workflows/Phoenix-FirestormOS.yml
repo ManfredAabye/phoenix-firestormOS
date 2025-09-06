@@ -126,7 +126,7 @@ jobs:
 
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
-      
+
       - name: Extrahiere Setup-Datei und Tag
         id: extract
         shell: bash
@@ -140,14 +140,18 @@ jobs:
           fi
       
           BASENAME=$(basename "$SETUP_FILE")
-          VERSION=$(echo "$BASENAME" | grep -oP 'Phoenix-FirestormOS-WebRTC_AVX2-\K[0-9.-]+(?=_Setup\.exe)')
+      
+          # Version aus dem Dateinamen extrahieren
+          # Beispiel: Phoenix-FirestormOS-WebRTC_AVX2-6.6.17.70368_Setup.exe
+          tmp=${BASENAME#Phoenix-FirestormOS-WebRTC_AVX2-}   # vorne abschneiden
+          VERSION=${tmp%_Setup.exe}                          # hinten abschneiden
           TAGNAME="${VERSION//-/.}"
       
           echo "Setup-Datei: $SETUP_FILE"
           echo "Tagname: $TAGNAME"
       
-          echo "setup_file=$SETUP_FILE" >> $GITHUB_OUTPUT
-          echo "tag_name=$TAGNAME" >> $GITHUB_OUTPUT
+          echo "setup_file=$SETUP_FILE" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAGNAME" >> "$GITHUB_OUTPUT"
       
       - name: Erstelle GitHub Release
         uses: softprops/action-gh-release@v1

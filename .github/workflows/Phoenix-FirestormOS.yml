@@ -127,9 +127,11 @@ jobs:
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
 
-          @REM dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
+          dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
 
-          @REM Oberhalb darf nichts verändert werden, wir befinden uns noch im CMD bereich der Build wurde erstellt und trägt den Namen (Platzhalter=*): Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe 
+          @REM Oberhalb darf nichts verändert werden, wir befinden uns noch im CMD bereich der Build wurde erstellt und trägt den Namen (Platzhalter=*): Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe
+
+          # Suche den Namen Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe in "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release" und ermittle die Nummer tausche die Bindestriche - gegeb Punkte aus und schreibe diese in die Variable TAGNAME und verwende sie als tag_name 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         env:
@@ -138,5 +140,7 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: "Phoenix-FirestormOS Build ${{ github.run_number }}"
           body: "Automatic build"
+          # OUTPUT_DIR ist das ausgabeverzeichnis.
+          # Nur eine Datei hat am ende des Namens Setup.exe
           files: phoenix-firestormOS/phoenix-firestormOS/Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/*Setup.exe
 

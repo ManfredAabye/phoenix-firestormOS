@@ -127,20 +127,55 @@ jobs:
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
 
+          echo %OUTPUT_DIR% > output_path.txt
+
+          @REM Teste Verzeichnisse durch ausgabe:
+          echo script_dir ausgabe:
           dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
+          echo build_dir ausgabe:
+          dir /b "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
 
           @REM Oberhalb darf nichts verändert werden, wir befinden uns noch im CMD bereich der Build wurde erstellt und trägt den Namen (Platzhalter=*): Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe
 
           # Suche den Namen Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe in "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release" und ermittle die Nummer tausche die Bindestriche - gegeb Punkte aus und schreibe diese in die Variable TAGNAME und verwende sie als tag_name 
+      - name: Lese Output-Verzeichnis
+        id: read_output
+        shell: bash
+        run: |
+          OUTPUT_DIR=$(cat output_path.txt | tr -d '\r')
+          echo "output_dir=$OUTPUT_DIR" >> $GITHUB_OUTPUT
+          
+      - name: Extrahiere Tag aus Dateiname
+        id: extract_tag
+        shell: bash
+        run: |
+          RELEASE_DIR="Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release"
+          SETUP_FILE=$(ls $RELEASE_DIR/*Setup.exe | head -n 1)
+          BASENAME=$(basename "$SETUP_FILE")
+          
+          # Extrahiere Versionsnummer aus Dateiname
+          VERSION=$(echo "$BASENAME" | grep -oP 'Phoenix-FirestormOS-WebRTC_AVX2-\K[0-9.-]+(?=_Setup\.exe)')
+          
+          # Optional: Bindestriche durch Punkte ersetzen
+          TAGNAME="${VERSION//-/.}"
+          
+          echo "Tagname ist: $TAGNAME"
+          echo "tag_name=$TAGNAME" >> $GITHUB_OUTPUT
+
+          # files: phoenix-firestormOS/phoenix-firestormOS/Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/*Setup.exe
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: build-${{ github.run_number }}
-          name: "Phoenix-FirestormOS Build ${{ github.run_number }}"
+          tag_name: ${{ steps.extract_tag.outputs.tag_name }}
+          name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 ${{ steps.extract_tag.outputs.tag_name }}"
           body: "Automatic build"
-          # OUTPUT_DIR ist das ausgabeverzeichnis.
-          # Nur eine Datei hat am ende des Namens Setup.exe
-          files: phoenix-firestormOS/phoenix-firestormOS/Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/*Setup.exe
+          # "OUTPUT_DIR=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
+          # "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
+          files: |
+            Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/*Setup.exe
+            ${{ steps.read_output.outputs.output_dir }}/*Setup.exe
+
 

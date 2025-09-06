@@ -17,7 +17,7 @@ jobs:
       - name: Firestorm Remote hinzufügen
         run: |
           git remote add firestorm https://github.com/FirestormViewer/phoenix-firestorm.git
-          git fetch firestorm main
+          git fetch firestorm master
 
       - name: Check für Änderungen
         id: check_changes

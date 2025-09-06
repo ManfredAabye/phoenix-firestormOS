@@ -166,10 +166,6 @@ jobs:
           tag_name: ${{ steps.extract_tag.outputs.tag_name }}
           name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 ${{ steps.extract_tag.outputs.tag_name }}"
           body: "Automatic build"
-          # "OUTPUT_DIR=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
-          # "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
           files: |
             Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/*Setup.exe
             ${{ steps.read_output.outputs.output_dir }}/*Setup.exe
-
-

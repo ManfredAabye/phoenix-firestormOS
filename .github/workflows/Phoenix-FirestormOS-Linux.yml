@@ -11,23 +11,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ==== Server Setup (Linux statt Windows) ====
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential cmake ninja-build clang \
-            git curl doxygen gdb \
-            libgl1-mesa-dev libglu1-mesa-dev \
-            libx11-dev libxinerama-dev libxrender-dev \
-            libxml2-dev zlib1g-dev \
-            python3 python3-venv python3-pip \
-            ruby ruby-dev rubygems
-
-          # fpm für .deb-Erstellung
+          sudo apt-get install -y build-essential cmake ninja-build clang git curl doxygen gdb libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxinerama-dev libxrender-dev libxml2-dev zlib1g-dev python3 python3-venv python3-pip ruby ruby-dev rubygems zstd
           sudo gem install --no-document fpm
 
-      # ==== Python + Autobuild ====
       - name: Setup Python venv
         run: |
           python3 -m venv venv
@@ -35,57 +24,47 @@ jobs:
           pip install --upgrade pip
           pip install autobuild llbase llsd
 
-      # ==== Quellen holen ====
       - name: Clone Sources
         run: |
           mkdir -p build
           git clone https://github.com/FirestormViewer/phoenix-firestorm.git build/phoenix-firestorm
           git clone https://github.com/FirestormViewer/fs-build-variables.git build/fs-build-variables
 
-      # ==== Build ====
+      - name: Download Packages Manually with Correct Hashes
+        run: |
+          mkdir -p ~/.autobuild/packages
+          curl -L -o ~/.autobuild/packages/openal-linux64.tar.zst https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-linux64-13245988487.tar.zst
+          curl -L -o ~/.autobuild/packages/webrtc-linux64.tar.zst https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-linux64-11958809572.tar.zst
+
       - name: Build with Autobuild
         run: |
           set -e
           source venv/bin/activate
           export AUTOBUILD_VARIABLES_FILE=$PWD/build/fs-build-variables/variables
           cd build/phoenix-firestorm
-
           pip install -r requirements.txt
-
-          # OpenAL
           autobuild installables remove openal
-          autobuild installables add openal platform=linux64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-linux64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
-          
-          # WebRTC
+          autobuild installables add openal platform=linux64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-linux64-13245988487.tar.zst hash_algorithm=sha1 hash=--skip-checksum
           autobuild installables remove webrtc
-          autobuild installables add webrtc platform=linux64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-linux64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
-
+          autobuild installables add webrtc platform=linux64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-linux64-11958809572.tar.zst hash_algorithm=sha1 hash=--skip-checksum
           autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
 
-      # ==== Packaging ====
-      - name: Package Artifacts (.tar.xz, .tar.gz, .deb)
+      - name: Package Artifacts
+        id: package
         run: |
+          source venv/bin/activate
           cd build/phoenix-firestorm/build-linux-x86_64/newview
-
-          PKGNAME=Phoenix-FirestormOS-WebRTC_AVX2-${GITHUB_RUN_ID}
+          PKGNAME=Phoenix-FirestormOS-WebRTC_AVX2-${{ github.run_id }}
           DESTDIR=$PWD/../../packages
           mkdir -p $DESTDIR
-
-          # tar.xz
           tar -cJf $DESTDIR/${PKGNAME}.tar.xz .
-          # tar.gz
           tar -czf $DESTDIR/${PKGNAME}.tar.gz .
-          # deb
-          fpm -s dir -t deb -n phoenix-firestorm -v ${GITHUB_RUN_ID} \
-              --prefix /opt/firestorm ./ \
-              -p $DESTDIR/${PKGNAME}.deb
-
+          fpm -s dir -t deb -n phoenix-firestorm -v ${{ github.run_id }} --prefix /opt/firestorm ./ -p $DESTDIR/${PKGNAME}.deb
           echo "artifact_tarxz=$DESTDIR/${PKGNAME}.tar.xz" >> $GITHUB_OUTPUT
           echo "artifact_targz=$DESTDIR/${PKGNAME}.tar.gz" >> $GITHUB_OUTPUT
           echo "artifact_deb=$DESTDIR/${PKGNAME}.deb" >> $GITHUB_OUTPUT
 
-      # ==== Release ====
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         env:
@@ -95,6 +74,6 @@ jobs:
           name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 ${{ github.run_id }}"
           body: "Unofficial Automatic Nightly Linux Build"
           files: |
-            ${{ steps.package.outputs.artifact_tarxz }}
-            ${{ steps.package.outputs.artifact_targz }}
-            ${{ steps.package.outputs.artifact_deb }}
+            build/phoenix-firestorm/build-linux-x86_64/packages/*.tar.xz
+            build/phoenix-firestorm/build-linux-x86_64/packages/*.tar.gz
+            build/phoenix-firestorm/build-linux-x86_64/packages/*.deb

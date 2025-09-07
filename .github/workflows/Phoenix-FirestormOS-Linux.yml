@@ -37,14 +37,35 @@ jobs:
           export AUTOBUILD_VARIABLES_FILE=$PWD/build/fs-build-variables/variables
           cd build/phoenix-firestorm
           pip install -r requirements.txt
+          
+          # Pakete mit korrekten Hashes hinzufügen
           autobuild installables remove openal
           autobuild installables add openal platform=linux64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-linux64-13245988487.tar.zst hash_algorithm=sha1 hash=a2b63f0f85ca156c59ee1d34ef96c8e50b89153c
           autobuild installables remove webrtc
           autobuild installables add webrtc platform=linux64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m137.7151.04.9/webrtc-m137.7151.04.9.17354044714-linux64-17354044714.tar.zst hash_algorithm=sha1 hash=586254d0c87cdaf9bb379ad36f161d42c499cfb3
-          autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
+          
+          # Zuerst nur konfigurieren mit verbose output
+          autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC --verbose
+          
+          # Build nur wenn Konfiguration erfolgreich war
           autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
 
+      - name: Check if build was successful
+        run: |
+          if [ -f "build/phoenix-firestorm/build-linux-x86_64/newview/viewer_version.txt" ]; then
+            echo "Build successful, viewer_version.txt exists"
+            cat build/phoenix-firestorm/build-linux-x86_64/newview/viewer_version.txt
+          else
+            echo "Build failed, checking logs..."
+            ls -la build/phoenix-firestorm/build-linux-x86_64/
+            if [ -f "build/phoenix-firestorm/build-linux-x86_64/logs/build_linux.log" ]; then
+              tail -50 build/phoenix-firestorm/build-linux-x86_64/logs/build_linux.log
+            fi
+            exit 1
+          fi
+
       - name: Package Artifacts
+        if: success()
         id: package
         run: |
           source venv/bin/activate
@@ -60,6 +81,7 @@ jobs:
           echo "artifact_deb=$DESTDIR/${PKGNAME}.deb" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
+        if: success()
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

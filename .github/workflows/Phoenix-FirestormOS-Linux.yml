@@ -1,0 +1,81 @@
+name: Build and Release Phoenix-FirestormOS OpenAL WebRTC AVX2 Linux64
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    uses: ./.github/workflows/serverinstall.yml
+
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl doxygen gdb git \
+              libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxinerama-dev \
+              libxrender-dev libxml2-dev libstdc++6 python3 python3-venv python3-pip
+
+      - name: Setup Python Env & Autobuild
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install autobuild
+
+      - name: Clone Sources
+        run: |
+          git clone https://github.com/FirestormViewer/phoenix-firestorm.git build/phoenix-firestorm
+          git clone https://github.com/FirestormViewer/fs-build-variables.git build/fs-build-variables
+
+      - name: Build with Autobuild
+        run: |
+          source venv/bin/activate
+          export AUTOBUILD_VARIABLES_FILE=build/fs-build-variables/variables
+          cd build/phoenix-firestorm
+          pip install -r requirements.txt
+
+          # Beispiel für Installables → ggf. anpassen
+          autobuild installables edit openal platform=linux64 \
+            url=<OPENAL_LINUX_PACKAGE> hash_algorithm=sha1 hash=<HASH>
+          # Weitere installables entsprechend
+
+          autobuild configure -v -A 64 -c ReleaseFS_open -- --avx2 --openal --package
+          autobuild build -v -A 64 -c ReleaseFS_open
+
+      - name: Package Artifacts
+        run: |
+          cd build/phoenix-firestorm/build-linux-x86_64/newview
+
+          # .tar.xz
+          tar -cJf ../Phoenix-FirestormOS-Release_${GITHUB_RUN_ID}.tar.xz .
+          # .tar.gz
+          tar -czf ../Phoenix-FirestormOS-Release_${GITHUB_RUN_ID}.tar.gz .
+          # .deb via fpm (installieren falls nötig)
+          sudo apt-get install -y ruby ruby-dev build-essential
+          sudo gem install --no-document fpm
+          fpm -s dir -t deb -n phoenix-firestorm -v "${GITHUB_RUN_ID}" \
+              --prefix /opt/firestorm ./
+
+          echo "artifact_tarxz=phoenix-firestorm/build-linux-x86_64/Phoenix-FirestormOS-Release_${GITHUB_RUN_ID}.tar.xz" >> $GITHUB_OUTPUT
+          echo "artifact_targz=phoenix-firestorm/build-linux-x86_64/Phoenix-FirestormOS-Release_${GITHUB_RUN_ID}.tar.gz" >> $GITHUB_OUTPUT
+          echo "artifact_deb=phoenix-firestorm/build-linux-x86_64/phoenix-firestorm_${GITHUB_RUN_ID}_amd64.deb" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_id }}
+          name: "Phoenix-FirestormOS Release ${{ github.run_id }}"
+          body: "Unofficial Automatic Nightly Build for Linux"
+          files: |
+            ${{ steps.build.outputs.artifact_tarxz }}
+            ${{ steps.build.outputs.artifact_targz }}
+            ${{ steps.build.outputs.artifact_deb }}

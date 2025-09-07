@@ -52,20 +52,18 @@ jobs:
 
           pip install -r requirements.txt
 
-          # Beispiel: installables für Linux (URLs & Hashes prüfen!)
-          autobuild installables edit openal platform=linux64 \
-            url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-linux64-13245988487.tar.zst \
-            hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
-
+          # OpenAL
+          autobuild installables remove openal
+          autobuild installables add openal platform=linux64 git=https://github.com/secondlife/3p-openal-soft.git commit=<latest-commit-hash> hash_algorithm=sha1 hash=<computed-sha1-of-commit>
+          
+          # Assimp
           autobuild installables remove assimp
-          autobuild installables add assimp platform=linux64 \
-            url=https://github.com/secondlife/3p-assimp/releases/download/v5.2.5-r3/assimp-linux64-5.2.5-r3.tar.bz2 \
-            hash_algorithm=sha1 hash=8b878487089380b43a8b2109dfc6ab8bbebd4009
-
+          autobuild installables add assimp platform=linux64 git=https://github.com/secondlife/3p-assimp.git commit=<latest-commit-hash> hash_algorithm=sha1 hash=<computed-sha1-of-commit>
+          
+          # WebRTC
           autobuild installables remove webrtc
-          autobuild installables add webrtc platform=linux64 \
-            url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-linux64-11958809572.tar.zst \
-            hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
+          autobuild installables add webrtc platform=linux64 git=https://github.com/secondlife/3p-webrtc-build.git commit=<latest-commit-hash> hash_algorithm=sha1 hash=<computed-sha1-of-commit>
+
 
           autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose

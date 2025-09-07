@@ -4,78 +4,104 @@ on:
   workflow_dispatch:
 
 jobs:
-  setup:
-    uses: ./.github/workflows/serverinstall.yml
-
   build:
-    needs: setup
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      # ==== Server Setup (Linux statt Windows) ====
+      - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake curl doxygen gdb git \
-              libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxinerama-dev \
-              libxrender-dev libxml2-dev libstdc++6 python3 python3-venv python3-pip
+          sudo apt-get install -y \
+            build-essential cmake ninja-build clang \
+            git curl doxygen gdb \
+            libgl1-mesa-dev libglu1-mesa-dev \
+            libx11-dev libxinerama-dev libxrender-dev \
+            libxml2-dev zlib1g-dev \
+            python3 python3-venv python3-pip \
+            ruby ruby-dev rubygems
 
-      - name: Setup Python Env & Autobuild
+          # fpm für .deb-Erstellung
+          sudo gem install --no-document fpm
+
+      # ==== Python + Autobuild ====
+      - name: Setup Python venv
         run: |
           python3 -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install autobuild
+          pip install autobuild llbase llsd
 
+      # ==== Quellen holen ====
       - name: Clone Sources
         run: |
+          mkdir -p build
           git clone https://github.com/FirestormViewer/phoenix-firestorm.git build/phoenix-firestorm
           git clone https://github.com/FirestormViewer/fs-build-variables.git build/fs-build-variables
 
+      # ==== Build ====
       - name: Build with Autobuild
         run: |
+          set -e
           source venv/bin/activate
-          export AUTOBUILD_VARIABLES_FILE=build/fs-build-variables/variables
+          export AUTOBUILD_VARIABLES_FILE=$PWD/build/fs-build-variables/variables
           cd build/phoenix-firestorm
+
           pip install -r requirements.txt
 
-          # Beispiel für Installables → ggf. anpassen
+          # Beispiel: installables für Linux (URLs & Hashes prüfen!)
           autobuild installables edit openal platform=linux64 \
-            url=<OPENAL_LINUX_PACKAGE> hash_algorithm=sha1 hash=<HASH>
-          # Weitere installables entsprechend
+            url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-linux64-13245988487.tar.zst \
+            hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
 
-          autobuild configure -v -A 64 -c ReleaseFS_open -- --avx2 --openal --package
-          autobuild build -v -A 64 -c ReleaseFS_open
+          autobuild installables remove assimp
+          autobuild installables add assimp platform=linux64 \
+            url=https://github.com/secondlife/3p-assimp/releases/download/v5.2.5-r3/assimp-linux64-5.2.5-r3.tar.bz2 \
+            hash_algorithm=sha1 hash=8b878487089380b43a8b2109dfc6ab8bbebd4009
 
-      - name: Package Artifacts
+          autobuild installables remove webrtc
+          autobuild installables add webrtc platform=linux64 \
+            url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-linux64-11958809572.tar.zst \
+            hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
+
+          autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
+          autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
+
+      # ==== Packaging ====
+      - name: Package Artifacts (.tar.xz, .tar.gz, .deb)
         run: |
           cd build/phoenix-firestorm/build-linux-x86_64/newview
 
-          # .tar.xz
-          tar -cJf ../Phoenix-FirestormOS-Release_${GITHUB_RUN_ID}.tar.xz .
-          # .tar.gz
-          tar -czf ../Phoenix-FirestormOS-Release_${GITHUB_RUN_ID}.tar.gz .
-          # .deb via fpm (installieren falls nötig)
-          sudo apt-get install -y ruby ruby-dev build-essential
-          sudo gem install --no-document fpm
-          fpm -s dir -t deb -n phoenix-firestorm -v "${GITHUB_RUN_ID}" \
-              --prefix /opt/firestorm ./
+          PKGNAME=Phoenix-FirestormOS-WebRTC_AVX2-${GITHUB_RUN_ID}
+          DESTDIR=$PWD/../../packages
+          mkdir -p $DESTDIR
 
-          echo "artifact_tarxz=phoenix-firestorm/build-linux-x86_64/Phoenix-FirestormOS-Release_${GITHUB_RUN_ID}.tar.xz" >> $GITHUB_OUTPUT
-          echo "artifact_targz=phoenix-firestorm/build-linux-x86_64/Phoenix-FirestormOS-Release_${GITHUB_RUN_ID}.tar.gz" >> $GITHUB_OUTPUT
-          echo "artifact_deb=phoenix-firestorm/build-linux-x86_64/phoenix-firestorm_${GITHUB_RUN_ID}_amd64.deb" >> $GITHUB_OUTPUT
+          # tar.xz
+          tar -cJf $DESTDIR/${PKGNAME}.tar.xz .
+          # tar.gz
+          tar -czf $DESTDIR/${PKGNAME}.tar.gz .
+          # deb
+          fpm -s dir -t deb -n phoenix-firestorm -v ${GITHUB_RUN_ID} \
+              --prefix /opt/firestorm ./ \
+              -p $DESTDIR/${PKGNAME}.deb
 
+          echo "artifact_tarxz=$DESTDIR/${PKGNAME}.tar.xz" >> $GITHUB_OUTPUT
+          echo "artifact_targz=$DESTDIR/${PKGNAME}.tar.gz" >> $GITHUB_OUTPUT
+          echo "artifact_deb=$DESTDIR/${PKGNAME}.deb" >> $GITHUB_OUTPUT
+
+      # ==== Release ====
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ github.run_id }}
-          name: "Phoenix-FirestormOS Release ${{ github.run_id }}"
-          body: "Unofficial Automatic Nightly Build for Linux"
+          name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 ${{ github.run_id }}"
+          body: "Unofficial Automatic Nightly Linux Build"
           files: |
-            ${{ steps.build.outputs.artifact_tarxz }}
-            ${{ steps.build.outputs.artifact_targz }}
-            ${{ steps.build.outputs.artifact_deb }}
+            ${{ steps.package.outputs.artifact_tarxz }}
+            ${{ steps.package.outputs.artifact_targz }}
+            ${{ steps.package.outputs.artifact_deb }}

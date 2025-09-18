@@ -13,14 +13,10 @@ jobs:
 
       - name: Setup Cross-Compiler for arm64
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-      
-          # Set environment variables for subsequent steps
-          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "CXX=aarch64-linux-gnu-g++" >> $GITHUB_ENV
-          echo "HOST=aarch64-linux-gnu" >> $GITHUB_ENV
-
+          sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          export CC=aarch64-linux-gnu-gcc
+          export CXX=aarch64-linux-gnu-g++
+          export HOST=aarch64-linux-gnu
 
       - name: Install Build Dependencies
         run: |
@@ -61,31 +57,26 @@ jobs:
           # Build nur wenn Konfiguration erfolgreich war
           autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
 
-      - name: Create viewer_version.txt
-        run: |
-          mkdir -p build/phoenix-firestorm/build-linux-arm64/newview
-          echo "7.2.2.79314" > build/phoenix-firestorm/build-linux-arm64/newview/viewer_version.txt
-
       - name: Check if build was successful
         run: |
-          if [ -f "build/phoenix-firestorm/build-linux-arm64/newview/viewer_version.txt" ]; then
+          if [ -f "build/phoenix-firestorm/build-linux-x86_64/newview/viewer_version.txt" ]; then
             echo "Build successful, viewer_version.txt exists"
-            cat build/phoenix-firestorm/build-linux-arm64/newview/viewer_version.txt
+            cat build/phoenix-firestorm/build-linux-x86_64/newview/viewer_version.txt
           else
             echo "Build failed, checking logs..."
-            ls -la build/phoenix-firestorm/build-linux-arm64/
-            if [ -f "build/phoenix-firestorm/build-linux-arm64/logs/build_linux.log" ]; then
-              tail -50 build/phoenix-firestorm/build-linux-arm64/logs/build_linux.log
+            ls -la build/phoenix-firestorm/build-linux-x86_64/
+            if [ -f "build/phoenix-firestorm/build-linux-x86_64/logs/build_linux.log" ]; then
+              tail -50 build/phoenix-firestorm/build-linux-x86_64/logs/build_linux.log
             fi
             exit 1
           fi
-          
+
       - name: Package Artifacts
         if: success()
         id: package
         run: |
           source venv/bin/activate
-          cd build/phoenix-firestorm/build-linux-arm64/newview
+          cd build/phoenix-firestorm/build-linux-x86_64/newview
           PKGNAME=Phoenix-FirestormOS-WebRTC-${{ github.run_id }}
           DESTDIR=$PWD/../../packages
           mkdir -p $DESTDIR
@@ -106,6 +97,6 @@ jobs:
           name: "Phoenix-FirestormOS OpenAL WebRTC ${{ github.run_id }}"
           body: "Unofficial Automatic Nightly Linux Build"
           files: |
-            build/phoenix-firestorm/build-linux-arm64/packages/*.tar.xz
-            build/phoenix-firestorm/build-linux-arm64/packages/*.tar.gz
-            build/phoenix-firestorm/build-linux-arm64/packages/*.deb
+            build/phoenix-firestorm/build-linux-x86_64/packages/*.tar.xz
+            build/phoenix-firestorm/build-linux-x86_64/packages/*.tar.gz
+            build/phoenix-firestorm/build-linux-x86_64/packages/*.deb

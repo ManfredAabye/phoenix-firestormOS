@@ -5,11 +5,18 @@ on:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, arm64]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Setup Cross-Compiler for arm64
+        run: |
+          sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          export CC=aarch64-linux-gnu-gcc
+          export CXX=aarch64-linux-gnu-g++
+          export HOST=aarch64-linux-gnu
 
       - name: Install Build Dependencies
         run: |

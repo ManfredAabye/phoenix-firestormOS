@@ -48,10 +48,10 @@ jobs:
           # autobuild installables add webrtc platform=linux-arm64 url=https://... hash_algorithm=sha1 hash=...
 
           # Konfiguration für ARM64 (statt x86_64 mit AVX2)
-          autobuild configure --config-file autobuild.xml -A arm64 -c ReleaseFS_open -- --openal --package --chan WebRTC --verbose
+          autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --openal --package --chan WebRTC --verbose
 
           # Build nur wenn Konfiguration erfolgreich war
-          autobuild build --config-file autobuild.xml -A arm64 -c ReleaseFS_open --no-configure --verbose
+          autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
 
       - name: Check if build was successful
         run: |

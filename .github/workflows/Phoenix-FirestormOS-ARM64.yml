@@ -1,11 +1,11 @@
-name: Build and Release Phoenix-FirestormOS OpenAL WebRTC ARM64
+name: Build and Release Phoenix-FirestormOS OpenAL WebRTC Linux arm64
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64]
 
     steps:
       - name: Checkout Repository
@@ -37,19 +37,16 @@ jobs:
           export AUTOBUILD_VARIABLES_FILE=$PWD/build/fs-build-variables/variables
           cd build/phoenix-firestorm
           pip install -r requirements.txt
-
-          # Entferne x86_64-spezifische Pakete
+          
+          # Pakete mit korrekten Hashes hinzufügen
           autobuild installables remove openal
+          autobuild installables add openal platform=linux64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-linux64-13245988487.tar.zst hash_algorithm=sha1 hash=a2b63f0f85ca156c59ee1d34ef96c8e50b89153c
           autobuild installables remove webrtc
-
-          # Füge ARM64-kompatible Pakete hinzu – du musst diese bereitstellen!
-          # Beispiel:
-          # autobuild installables add openal platform=linux-arm64 url=https://... hash_algorithm=sha1 hash=...
-          # autobuild installables add webrtc platform=linux-arm64 url=https://... hash_algorithm=sha1 hash=...
-
-          # Konfiguration für ARM64 (statt x86_64 mit AVX2)
+          autobuild installables add webrtc platform=linux64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m137.7151.04.9/webrtc-m137.7151.04.9.17354044714-linux64-17354044714.tar.zst hash_algorithm=sha1 hash=586254d0c87cdaf9bb379ad36f161d42c499cfb3
+          
+          # Zuerst nur konfigurieren mit verbose output
           autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --openal --package --chan WebRTC --verbose
-
+          
           # Build nur wenn Konfiguration erfolgreich war
           autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
 
@@ -73,7 +70,7 @@ jobs:
         run: |
           source venv/bin/activate
           cd build/phoenix-firestorm/build-linux-arm64/newview
-          PKGNAME=Phoenix-FirestormOS-WebRTC_ARM64-${{ github.run_id }}
+          PKGNAME=Phoenix-FirestormOS-WebRTC-${{ github.run_id }}
           DESTDIR=$PWD/../../packages
           mkdir -p $DESTDIR
           tar -cJf $DESTDIR/${PKGNAME}.tar.xz .
@@ -90,8 +87,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ github.run_id }}
-          name: "Phoenix-FirestormOS OpenAL WebRTC ARM64 ${{ github.run_id }}"
-          body: "Unofficial Automatic ARM64 Build for Raspberry Pi"
+          name: "Phoenix-FirestormOS OpenAL WebRTC ${{ github.run_id }}"
+          body: "Unofficial Automatic Nightly Linux Build"
           files: |
             build/phoenix-firestorm/build-linux-arm64/packages/*.tar.xz
             build/phoenix-firestorm/build-linux-arm64/packages/*.tar.gz

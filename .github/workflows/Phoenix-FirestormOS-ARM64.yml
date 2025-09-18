@@ -13,10 +13,14 @@ jobs:
 
       - name: Setup Cross-Compiler for arm64
         run: |
-          sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          export CC=aarch64-linux-gnu-gcc
-          export CXX=aarch64-linux-gnu-g++
-          export HOST=aarch64-linux-gnu
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+      
+          # Set environment variables for subsequent steps
+          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+          echo "HOST=aarch64-linux-gnu" >> $GITHUB_ENV
+
 
       - name: Install Build Dependencies
         run: |

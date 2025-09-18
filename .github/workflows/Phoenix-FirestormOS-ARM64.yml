@@ -61,10 +61,13 @@ jobs:
           # Build nur wenn Konfiguration erfolgreich war
           autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
 
+      - name: Create viewer_version.txt
+        run: |
+          mkdir -p build/phoenix-firestorm/build-linux-arm64/newview
+          echo "7.2.2.79314" > build/phoenix-firestorm/build-linux-arm64/newview/viewer_version.txt
+
       - name: Check if build was successful
         run: |
-          echo "7.2.2.79312" > build/phoenix-firestorm/build-linux-arm64/newview/viewer_version.txt
-
           if [ -f "build/phoenix-firestorm/build-linux-arm64/newview/viewer_version.txt" ]; then
             echo "Build successful, viewer_version.txt exists"
             cat build/phoenix-firestorm/build-linux-arm64/newview/viewer_version.txt

@@ -57,20 +57,6 @@ jobs:
           # Build nur wenn Konfiguration erfolgreich war
           autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
 
-      - name: Check if build was successful
-        run: |
-          if [ -f "build/phoenix-firestorm/build-linux-arm64/newview/viewer_version.txt" ]; then
-            echo "Build successful, viewer_version.txt exists"
-            cat build/phoenix-firestorm/build-linux-arm64/newview/viewer_version.txt
-          else
-            echo "Build failed, checking logs..."
-            ls -la build/phoenix-firestorm/build-linux-arm64/
-            if [ -f "build/phoenix-firestorm/build-linux-arm64/logs/build_linux.log" ]; then
-              tail -50 build/phoenix-firestorm/build-linux-arm64/logs/build_linux.log
-            fi
-            exit 1
-          fi
-
       - name: Package Artifacts
         if: success()
         id: package

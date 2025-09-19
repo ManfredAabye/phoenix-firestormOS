@@ -53,13 +53,9 @@ jobs:
           
           # Zuerst nur konfigurieren mit verbose output
           autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --openal --package --chan WebRTC --verbose
-          autobuild configure --config-file autobuild.xml -A 64 -c ReleaseFS_open -- --openal --package --chan WebRTC --verbose
           
           # Build nur wenn Konfiguration erfolgreich war
           autobuild build --config-file autobuild.xml -A 64 -c ReleaseFS_open --no-configure --verbose
-
-
-
 
       - name: Package Artifacts
         if: success()

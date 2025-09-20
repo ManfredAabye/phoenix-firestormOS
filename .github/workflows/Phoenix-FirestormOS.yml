@@ -160,5 +160,5 @@ jobs:
         with:
           tag_name: ${{ steps.extract.outputs.tag_name }}
           name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 ${{ steps.extract.outputs.tag_name }}"
-          body: "Unofficial Automatic Nightly Build from Developer Version"
+          body: "Unofficial Automatic Windows Nightly Build from Developer Version"
           files: ${{ steps.extract.outputs.setup_file }}

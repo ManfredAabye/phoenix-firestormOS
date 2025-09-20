@@ -81,7 +81,7 @@ jobs:
         with:
           tag_name: v${{ github.run_id }}
           name: "Phoenix-FirestormOS OpenAL WebRTC ${{ github.run_id }}"
-          body: "Unofficial Automatic Nightly Linux Build"
+          body: "Unofficial Automatic Arm64 Nightly Linux Build"
           files: |
             build/phoenix-firestorm/build-linux-x86_64/packages/*.tar.xz
             build/phoenix-firestorm/build-linux-x86_64/packages/*.tar.gz

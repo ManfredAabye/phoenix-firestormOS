@@ -8,7 +8,20 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Installiere Chocolatey (PowerShell)
+      - name: Bereinige Build-Verzeichnisse
+        shell: cmd
+        run: |
+          rmdir /S /Q C:\Firestorm_Build
+          rmdir /S /Q C:\temp
+          del /F /Q C:\Users\runneradmin\AppData\Local\Temp\* >nul 2>&1
+
+      - name: Bereinige temporäre Dateien
+        shell: powershell
+        run: |
+          Remove-Item -Recurse -Force "C:\Firestorm_Build" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$env:TEMP\*" -ErrorAction SilentlyContinue
+
+      - name: Installiere Chocolatey PowerShell
         shell: powershell
         run: |
           if (-not (Test-Path "$env:ProgramData\\Chocolatey\\bin\\choco.exe")) {
@@ -20,7 +33,7 @@ jobs:
             & "$env:ProgramData\\Chocolatey\\bin\\refreshEnv.cmd"
           }
 
-      - name: Installiere Tools (CMD)
+      - name: Installiere Tools CMD
         shell: cmd
         run: |
           choco install -y --no-progress visualstudio2022community --package-parameters="--add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.14.16.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"

@@ -4,9 +4,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  setup:
-    uses: ./.github/workflows/serverinstall.yml
-
   build:
     needs: setup
     runs-on: windows-latest
@@ -29,6 +26,8 @@ jobs:
         run: |
           @echo off
           setlocal enabledelayedexpansion
+          
+          :: Hier beginnt dein CMD-Block mit venv-Erstellung usw.
 
           set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
           set "PATH=%PATH:C:\Program Files\Git\cmd;%PATH%"

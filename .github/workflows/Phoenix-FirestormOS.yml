@@ -142,26 +142,23 @@ jobs:
           dir /b "%OUTPUT_DIR%"
           @REM Oberhalb darf nichts verändert werden, wir befinden uns noch im CMD bereich der Build wurde erstellt und trägt den Namen (Platzhalter=*): Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe
 
-      - name: Extrahiere Setup-Datei und Tag
-        id: extract
-        shell: bash
-        run: |
-          RELEASE_DIR="Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release"
-          SETUP_FILE=$(ls "$RELEASE_DIR"/*Setup.exe | head -n 1)
-          [ -f "$SETUP_FILE" ] || exit 1
-          BASENAME=$(basename "$SETUP_FILE")
-          tmp=${BASENAME#Phoenix-FirestormOS-WebRTC_AVX2-}
-          VERSION=${tmp%_Setup.exe}
-          TAGNAME="${VERSION//-/.}"
-          echo "setup_file=$SETUP_FILE" >> "$GITHUB_OUTPUT"
-          echo "tag_name=$TAGNAME" >> "$GITHUB_OUTPUT"
+          REM Setup-Datei extrahieren
+          setlocal EnableDelayedExpansion
+          set "RELEASE_DIR=Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
+          set "SETUP_FILE="
+          for %%F in ("%RELEASE_DIR%\*Setup.exe") do (
+            set "SETUP_FILE=%%F"
+            goto :found
+          )
+          echo Setup.exe nicht gefunden
+          exit /b 1
+          :found
+          for %%A in ("!SETUP_FILE!") do set "BASENAME=%%~nxA"
+          set "tmp=!BASENAME:Phoenix-FirestormOS-WebRTC_AVX2-=!"
+          set "VERSION=!tmp:_Setup.exe=!"
+          set "TAGNAME=!VERSION:-=.!"
+          echo setup_file=!SETUP_FILE!>>"%GITHUB_OUTPUT%"
+          echo tag_name=!TAGNAME!>>"%GITHUB_OUTPUT%"
 
-      - name: Erstelle GitHub Release
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.extract.outputs.tag_name }}
-          name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 ${{ steps.extract.outputs.tag_name }}"
-          body: "Unofficial Automatic Windows Nightly Build from Developer Version"
-          files: ${{ steps.extract.outputs.setup_file }}
+          dir /b "%RELEASE_DIR%"
+          

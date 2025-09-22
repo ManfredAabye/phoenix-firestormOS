@@ -62,12 +62,6 @@ jobs:
           "%PYTHON_BIN%" -m pip install --upgrade pip
           "%PYTHON_BIN%" -m pip install --force-reinstall --no-cache-dir llbase llsd autobuild
 
-          rem Autobuild Verfügbarkeit prüfen
-          rem "%PYTHON_BIN%" -m autobuild --version >nul 2>&1 || (
-              rem echo [FEHLER] Autobuild nicht verfügbar!
-              rem exit /b 1
-          rem )
-
           rem Git Repos klonen
           if not exist "%BUILD_DIR%\phoenix-firestorm\.git" (
               git clone "https://github.com/FirestormViewer/phoenix-firestorm.git" "%BUILD_DIR%\phoenix-firestorm"

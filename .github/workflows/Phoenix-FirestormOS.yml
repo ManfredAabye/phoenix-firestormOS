@@ -10,6 +10,8 @@ jobs:
   build:
     needs: setup
     runs-on: windows-latest
+    env:
+      VSVARSALL: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat"
     defaults:
       run:
         shell: cmd
@@ -24,6 +26,7 @@ jobs:
           setlocal enabledelayedexpansion
 
           set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+          set "PATH=%PATH:C:\Program Files\Git\cmd;%PATH%"
           set "GIT_BIN=%ProgramFiles%\Git\usr\bin"
           if exist "%GIT_BIN%\link.exe" (
               ren "%GIT_BIN%\link.exe" glink.exe
@@ -32,13 +35,20 @@ jobs:
               echo Git link.exe nicht gefunden. Kein Umbenennen nötig.
           )
 
-          call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+          if exist "%VSVARSALL%" (
+              call "%VSVARSALL%" x64
+          ) else (
+              echo Visual Studio Toolchain nicht gefunden!
+              exit /b 1
+          )
+
+          :: call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
           
           set "SCRIPT_DIR=%CD%"          
           set "PYTHON_VERSION=3.10.11"
           set "BUILD_DIR=%SCRIPT_DIR%\Firestorm_Build"
           set "VENV_DIR=%BUILD_DIR%\venv"
-          set "ProgramFiles=C:\Program Files"
+          :: set "ProgramFiles=C:\Program Files"
           set "AUTOBUILD_INSTALL_DIR=%BUILD_DIR%\packages"
           set "ARCH=64"
           set "CONFIG=ReleaseFS_open"
@@ -124,8 +134,15 @@ jobs:
           autobuild installables remove webrtc
           autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
 
+          echo Starte Build Prozess...
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
+          
+          echo Baue Projekt...
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
+          if errorlevel 1 (
+              echo Build fehlgeschlagen!
+              exit /b 1
+          )
 
           dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
 

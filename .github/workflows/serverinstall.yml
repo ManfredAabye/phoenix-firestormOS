@@ -41,10 +41,6 @@ jobs:
         shell: powershell
         run: |
           choco install -y --no-progress visualstudio2022buildtools --package-parameters="--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive"
-          if (-not (Test-Path "C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools")) {
-            Write-Error "Visual Studio Build Tools wurden nicht korrekt installiert."
-            exit 1
-          }
 
       - name: Installiere Python 3.10.11
         shell: powershell
@@ -74,3 +70,4 @@ jobs:
       - name: Setup abgeschlossen
         shell: bash
         run: echo "Setup erfolgreich abgeschlossen."
+

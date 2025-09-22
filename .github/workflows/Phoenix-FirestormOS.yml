@@ -10,8 +10,6 @@ jobs:
   build:
     needs: setup
     runs-on: windows-latest
-    env:
-      VSVARSALL: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat"
     defaults:
       run:
         shell: cmd
@@ -29,9 +27,8 @@ jobs:
         run: |
           @echo off
           setlocal enabledelayedexpansion
-          
-          :: Hier beginnt dein CMD-Block mit venv-Erstellung usw.
 
+          :: Git-Konfliktbereinigung
           set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
           set "PATH=%PATH:C:\Program Files\Git\cmd;%PATH%"
           set "GIT_BIN=%ProgramFiles%\Git\usr\bin"
@@ -42,37 +39,45 @@ jobs:
               echo Git link.exe nicht gefunden. Kein Umbenennen nötig.
           )
 
-          if exist "%VSVARSALL%" (
-              call "%VSVARSALL%" x64
-          ) else (
-              echo Visual Studio Toolchain nicht gefunden!
+          :: Dynamisch Visual Studio Toolchain finden
+          set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          if not exist "%VSWHERE%" (
+              echo vswhere.exe nicht gefunden!
               exit /b 1
           )
 
-          :: call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
-          
-          set "SCRIPT_DIR=%CD%"          
-          set "PYTHON_VERSION=3.10.11"
+          for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
+              set "VSINSTALL=%%i"
+          )
+
+          set "VSVARSALL=%VSINSTALL%\VC\Auxiliary\Build\vcvarsall.bat"
+          if exist "%VSVARSALL%" (
+              call "%VSVARSALL%" x64
+          ) else (
+              echo Visual Studio Toolchain nicht gefunden unter %VSVARSALL%
+              exit /b 1
+          )
+
+          :: Build-Variablen
+          set "SCRIPT_DIR=%CD%"
           set "BUILD_DIR=%SCRIPT_DIR%\Firestorm_Build"
           set "VENV_DIR=%BUILD_DIR%\venv"
-          :: set "ProgramFiles=C:\Program Files"
           set "AUTOBUILD_INSTALL_DIR=%BUILD_DIR%\packages"
           set "ARCH=64"
           set "CONFIG=ReleaseFS_open"
           set "OUTPUT_DIR=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
           set "AUTO_BUILD_CONFIG=%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
           set "AUTOBUILD_VARIABLES_FILE=%BUILD_DIR%\fs-build-variables\variables"
-
           set "AUTOBUILD_TEMP=%SCRIPT_DIR%\temp"
-          if not exist "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
           set "TMP=%AUTOBUILD_TEMP%"
           set "TEMP=%AUTOBUILD_TEMP%"
-
           set "FS_INCLUDE_SOURCE=%SCRIPT_DIR%\fs_include"
           set "FS_INCLUDE_DEST=%BUILD_DIR%\fs_include"
 
           mkdir "%BUILD_DIR%" 2>nul
+          if not exist "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
 
+          :: Python venv
           if not exist "%VENV_DIR%" (
               python -m venv "%VENV_DIR%"
               call "%VENV_DIR%\Scripts\activate.bat"
@@ -82,6 +87,7 @@ jobs:
               call "%VENV_DIR%\Scripts\activate.bat"
           )
 
+          :: Ressourcen kopieren
           if exist "%FS_INCLUDE_SOURCE%" (
               xcopy /E /I /Y "%FS_INCLUDE_SOURCE%" "%FS_INCLUDE_DEST%\" >nul
           )
@@ -89,6 +95,7 @@ jobs:
           set "ASSIMP_ROOT=%FS_INCLUDE_DEST%\assimp-windows64-5.2.5-r3"
           set "OPENAL_ROOT=%FS_INCLUDE_DEST%\openal-1.24.2-r1-windows64-13245988487"
 
+          :: Repositories klonen
           if not exist "%BUILD_DIR%\phoenix-firestorm\.git" (
               git clone "https://github.com/FirestormViewer/phoenix-firestorm.git" "%BUILD_DIR%\phoenix-firestorm"
           ) else (
@@ -101,49 +108,28 @@ jobs:
               git -C "%BUILD_DIR%\fs-build-variables" pull
           )
 
-          if not exist "%BUILD_DIR%\fs-build-variables" (
-              xcopy /E /I /Y "%SCRIPT_DIR%\fs-build-variables" "%BUILD_DIR%\fs-build-variables" >nul 2>&1
-          )
-
+          :: Zusätzliche Dateien kopieren
           xcopy /y fs_include\vivox_logo.png Firestorm_Build\phoenix-firestorm\indra\newview\skins\default\textures\3p_icons\
           xcopy /E /I /Y "Skin\skins.xml" "Firestorm_Build\phoenix-firestorm\indra\newview\skins"
           xcopy /E /I /Y "Skin\singularity" "Firestorm_Build\phoenix-firestorm\indra\newview\skins\singularity"
           xcopy /E /I /Y "fs_include\OPENAL.cmake" "Firestorm_Build\phoenix-firestorm\indra\cmake"
           xcopy /E /I /Y "fs_include\Assimp.cmake" "Firestorm_Build\phoenix-firestorm\indra\cmake"
 
-          if not exist "%FS_INCLUDE_DEST%\" (
-              xcopy /E /I /Y "%FS_INCLUDE_SOURCE%" "%FS_INCLUDE_DEST%\" >nul
-          )
-
+          :: Autobuild vorbereiten
           set "AUTOBUILD_VSVER=170"
           python -m pip install -r "%BUILD_DIR%\phoenix-firestorm\requirements.txt"
-
           copy /Y "%SCRIPT_DIR%\fs_include\autobuild.xml" "%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
 
-          set "VS2022BAT="
-          for %%D in ("C:\Program Files\Microsoft Visual Studio\2022\Community") do (
-              if exist "%%~D\VC\Auxiliary\Build\vcvarsall.bat" (
-                  set "VS2022BAT=%%~D\VC\Auxiliary\Build\vcvarsall.bat"
-              )
-          )
-
-          call "%VS2022BAT%" x64
-
-          if exist "%VENV_DIR%\Scripts\activate.bat" (
-              call "%VENV_DIR%\Scripts\activate.bat"
-          )
-
+          :: Installables konfigurieren
           autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
-
           autobuild installables remove assimp
           autobuild installables add assimp platform=windows64 url=https://github.com/secondlife/3p-assimp/releases/download/v5.2.5-r3/assimp-windows64-5.2.5-r3.tar.bz2 hash=8b878487089380b43a8b2109dfc6ab8bbebd4009 hash_algorithm=sha1
-
           autobuild installables remove webrtc
           autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
 
+          :: Build starten
           echo Starte Build Prozess...
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
-          
           echo Baue Projekt...
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
           if errorlevel 1 (
@@ -151,8 +137,7 @@ jobs:
               exit /b 1
           )
 
-          dir /b "%SCRIPT_DIR%\Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
-
+          dir /b "%OUTPUT_DIR%"
           @REM Oberhalb darf nichts verändert werden, wir befinden uns noch im CMD bereich der Build wurde erstellt und trägt den Namen (Platzhalter=*): Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe
 
       - name: Extrahiere Setup-Datei und Tag

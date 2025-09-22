@@ -130,11 +130,13 @@ jobs:
           :: Build starten
           echo Starte Build Prozess...
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
+          if errorlevel 1 (
+              echo Configure fehlgeschlagen!
+          )
           echo Baue Projekt...
-          autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --debug
+          autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
           if errorlevel 1 (
               echo Build fehlgeschlagen!
-              exit /b 1
           )
 
           dir /b "%OUTPUT_DIR%"

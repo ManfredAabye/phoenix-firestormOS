@@ -2,6 +2,10 @@ name: Windows Server 2025 Setup
 
 on:
   workflow_call:
+    outputs:
+      setup_complete:
+        description: "Setup abgeschlossen"
+        value: true
 
 jobs:
   setup:
@@ -37,16 +41,36 @@ jobs:
         shell: powershell
         run: |
           choco install -y --no-progress visualstudio2022buildtools --package-parameters="--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive"
+          if (-not (Test-Path "C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools")) {
+            Write-Error "Visual Studio Build Tools wurden nicht korrekt installiert."
+            exit 1
+          }
+
+      - name: Installiere Python 3.10.11
+        shell: powershell
+        run: |
+          choco install -y --no-progress python --version=3.10.11
+          $pyVersion = python --version
+          if (-not ($pyVersion -like "*3.10.11*")) {
+            Write-Error "Python 3.10.11 wurde nicht korrekt installiert."
+            exit 1
+          }
 
       - name: Installiere zusätzliche Tools
         shell: powershell
         run: |
-          choco install -y --no-progress cmake git python nsis cygwin 7zip ninja
+          choco install -y --no-progress cmake git nsis cygwin 7zip ninja
 
       - name: Installiere Cygwin-Paket „patch“
         shell: powershell
         run: |
-          $cygwinSetup = "C:\tools\cygwin\setup-x86_64.exe"
+          $cygwinSetup = "C:\\tools\\cygwin\\setup-x86_64.exe"
           if (Test-Path $cygwinSetup) {
             & $cygwinSetup -q -P patch
+          } else {
+            Write-Warning "Cygwin-Setup nicht gefunden. Patch-Paket konnte nicht installiert werden."
           }
+
+      - name: Setup abgeschlossen
+        shell: bash
+        run: echo "Setup erfolgreich abgeschlossen."

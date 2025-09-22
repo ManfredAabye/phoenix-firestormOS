@@ -162,3 +162,8 @@ jobs:
 
           dir /b "%RELEASE_DIR%"
           
+      - name: Firestorm Build fertig
+        shell: cmd
+        run: |
+          echo Firestorm Build fertig!
+              

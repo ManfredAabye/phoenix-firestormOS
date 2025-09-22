@@ -1,27 +1,27 @@
-name: Server Setup
+name: Windows Server 2025 Setup
 
 on:
   workflow_call:
 
 jobs:
   setup:
-    runs-on: windows-2022
+    runs-on: windows-latest
 
     steps:
-      - name: Bereinige Build-Verzeichnisse
+      - name: Bereinige Build-Verzeichnisse (CMD)
         shell: cmd
         run: |
           rmdir /S /Q C:\Firestorm_Build
           rmdir /S /Q C:\temp
-          del /F /Q C:\Users\runneradmin\AppData\Local\Temp\* >nul 2>&1
+          del /F /Q %TEMP%\* >nul 2>&1
 
-      - name: Bereinige temporäre Dateien
+      - name: Bereinige temporäre Dateien (PowerShell)
         shell: powershell
         run: |
           Remove-Item -Recurse -Force "C:\Firestorm_Build" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "$env:TEMP\*" -ErrorAction SilentlyContinue
 
-      - name: Installiere Chocolatey PowerShell
+      - name: Installiere Chocolatey (PowerShell)
         shell: powershell
         run: |
           if (-not (Test-Path "$env:ProgramData\\Chocolatey\\bin\\choco.exe")) {
@@ -33,13 +33,20 @@ jobs:
             & "$env:ProgramData\\Chocolatey\\bin\\refreshEnv.cmd"
           }
 
-      - name: Installiere Tools CMD
-        shell: cmd
+      - name: Installiere Visual Studio 2022 Build Tools
+        shell: powershell
         run: |
-          choco install -y --no-progress visualstudio2022community --package-parameters="--add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.14.16.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+          choco install -y --no-progress visualstudio2022buildtools --package-parameters="--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive"
 
-          choco install -y --no-progress cmake git python nsis cygwin 7zip
+      - name: Installiere zusätzliche Tools
+        shell: powershell
+        run: |
+          choco install -y --no-progress cmake git python nsis cygwin 7zip ninja
 
-          if exist "C:\cygwin64\cygwinsetup.exe" (
-              C:\cygwin64\cygwinsetup.exe -q -P patch
-          )
+      - name: Installiere Cygwin-Paket „patch“
+        shell: powershell
+        run: |
+          $cygwinSetup = "C:\tools\cygwin\setup-x86_64.exe"
+          if (Test-Path $cygwinSetup) {
+            & $cygwinSetup -q -P patch
+          }

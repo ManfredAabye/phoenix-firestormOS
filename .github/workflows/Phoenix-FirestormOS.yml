@@ -108,12 +108,19 @@ jobs:
               git -C "%BUILD_DIR%\fs-build-variables" pull
           )
 
+          :: 🔄 Zusätzliche Dateien holen oder aktualisieren
+          if not exist "%BUILD_DIR%\fs-build-firestorm-viewer-german\.git" (
+              git clone "https://github.com/ManfredAabye/fs-build-firestorm-viewer-german.git" "%BUILD_DIR%\fs-build-firestorm-viewer-german"
+          ) else (
+              git -C "%BUILD_DIR%\fs-build-firestorm-viewer-german" pull
+          )
+
           echo ℹ️ Zusätzliche Dateien kopieren
-          xcopy /y fs_include\vivox_logo.png Firestorm_Build\phoenix-firestorm\indra\newview\skins\default\textures\3p_icons\
-          xcopy /E /I /Y "Skin\skins.xml" "Firestorm_Build\phoenix-firestorm\indra\newview\skins"
-          xcopy /E /I /Y "Skin\singularity" "Firestorm_Build\phoenix-firestorm\indra\newview\skins\singularity"
-          xcopy /E /I /Y "fs_include\OPENAL.cmake" "Firestorm_Build\phoenix-firestorm\indra\cmake"
-          xcopy /E /I /Y "fs_include\Assimp.cmake" "Firestorm_Build\phoenix-firestorm\indra\cmake"
+          xcopy /y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\vivox_logo.png" "Firestorm_Build\phoenix-firestorm\indra\newview\skins\default\textures\3p_icons\"
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\skins.xml" "Firestorm_Build\phoenix-firestorm\indra\newview\skins"
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\singularity" "Firestorm_Build\phoenix-firestorm\indra\newview\skins\singularity"
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\OPENAL.cmake" "Firestorm_Build\phoenix-firestorm\indra\cmake"
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\Assimp.cmake" "Firestorm_Build\phoenix-firestorm\indra\cmake"
 
           echo ℹ️ Autobuild vorbereiten
           set "AUTOBUILD_VSVER=170"

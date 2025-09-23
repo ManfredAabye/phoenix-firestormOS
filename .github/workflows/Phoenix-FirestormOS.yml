@@ -72,7 +72,7 @@ jobs:
           set "AUTOBUILD_TEMP=%SCRIPT_DIR%\temp"
           set "TMP=%AUTOBUILD_TEMP%"
           set "TEMP=%AUTOBUILD_TEMP%"
-          set "FS_INCLUDE_SOURCE=%SCRIPT_DIR%\fs_include"
+          set "FS_INCLUDE_SOURCE=%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include"
           set "FS_INCLUDE_DEST=%BUILD_DIR%\fs_include"
 
           mkdir "%BUILD_DIR%" 2>nul

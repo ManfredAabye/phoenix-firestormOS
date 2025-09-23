@@ -13,7 +13,7 @@ jobs:
       - name: Delete old workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
-          token: ${{ secrets.DELETE_RUNS_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           keep_minimum_runs: 10
           delete_workflow_pattern: |
             build

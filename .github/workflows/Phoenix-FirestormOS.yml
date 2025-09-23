@@ -154,6 +154,12 @@ jobs:
           autobuild installables remove webrtc
           autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
 
+          echo ℹ️ Erstelle oder ersetze copy_touched.bat
+          set "TOUCHED_SCRIPT=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release\copy_touched.bat"
+          echo @echo off > "%TOUCHED_SCRIPT%"
+          echo set package_file=copied_deps >> "%TOUCHED_SCRIPT%"
+          echo exit /b 0 >> "%TOUCHED_SCRIPT%"         
+
           echo ℹ️ Build starten
           echo Starte Build Prozess...
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC

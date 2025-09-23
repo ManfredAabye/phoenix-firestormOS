@@ -60,6 +60,7 @@ jobs:
 
           echo ℹ️ Build-Variablen
           set "SCRIPT_DIR=%CD%"
+          echo 📦 Aktuelles Verzeichnis: %SCRIPT_DIR%
           set "BUILD_DIR=%SCRIPT_DIR%\Firestorm_Build"
           set "VENV_DIR=%BUILD_DIR%\venv"
           set "AUTOBUILD_INSTALL_DIR=%BUILD_DIR%\packages"
@@ -125,6 +126,7 @@ jobs:
           echo ℹ️ Autobuild vorbereiten
           set "AUTOBUILD_VSVER=170"
           python -m pip install -r "%BUILD_DIR%\phoenix-firestorm\requirements.txt"
+          echo 📦 Aktuelles Verzeichnis: %SCRIPT_DIR%
           copy /Y "%SCRIPT_DIR%\fs_include\autobuild.xml" "%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
 
           echo ℹ️ Versionierung der Abhängigkeiten:          

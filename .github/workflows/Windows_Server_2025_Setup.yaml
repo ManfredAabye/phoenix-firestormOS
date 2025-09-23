@@ -1,4 +1,4 @@
-name: Windows Server 2025 Setup
+name: Windows Server 2025 Setup Neu
 
 on:
   workflow_call:

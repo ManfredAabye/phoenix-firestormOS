@@ -127,6 +127,20 @@ jobs:
           python -m pip install -r "%BUILD_DIR%\phoenix-firestorm\requirements.txt"
           copy /Y "%SCRIPT_DIR%\fs_include\autobuild.xml" "%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
 
+          echo ℹ️ Versionierung der Abhängigkeiten:
+          
+          echo 🔧 CMake Version:
+          cmake --version
+      
+          echo 🐍 Python Version:
+          python --version
+      
+          echo 🔧 Git Version:
+          git --version
+      
+          echo 📦 Autobuild Version:
+          autobuild --version
+
           echo ℹ️ Installables konfigurieren
           autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
           autobuild installables remove assimp

@@ -30,7 +30,7 @@ jobs:
             Set-ExecutionPolicy Bypass -Scope Process -Force
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-            refreshenv
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
           } else {
             Write-Host "Chocolatey ist bereits installiert."
           }

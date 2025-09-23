@@ -173,4 +173,10 @@ jobs:
         shell: cmd
         run: |
           echo Firestorm Build fertig!
-              
+
+  release:
+    needs: build
+    uses: ./.github/workflows/release.yaml
+    with:
+      setup_file: ${{ needs.build.outputs.setup_file }}
+      tag_name: ${{ needs.build.outputs.tag_name }}

@@ -5,11 +5,11 @@ on:
 
 jobs:
   setup:
-    uses: ./.github/workflows/serverinstall.yml
+    uses: ./.github/workflows/Windows_Server_2025_Setup.yaml
 
   build:
     needs: setup
-    runs-on: windows-latest
+    runs-on: windows-2025 # explizit, damit die Eigenarten der neuen Version berücksichtigt werden
     defaults:
       run:
         shell: cmd

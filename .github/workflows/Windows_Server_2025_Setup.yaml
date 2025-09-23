@@ -9,7 +9,7 @@ on:
 
 jobs:
   setup:
-    runs-on: windows-2025 # explizit, damit die Eigenarten der neuen Version berücksichtigt werden
+    runs-on: windows-2025
 
     steps:
       - name: Checkout
@@ -56,21 +56,35 @@ jobs:
           }
           $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if (-not $installationPath) { throw "Visual Studio Build Tools wurden nicht gefunden!" }
-          $msvcDir = Get-ChildItem "$installationPath\\VC\\Tools\\MSVC" | Sort-Object Name -Descending | Select-Object -First 1
-          $binPath = Join-Path $msvcDir.FullName "bin\\Hostx64\\x64"
-          echo "$binPath" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+          # Pfad zu vcvars64.bat in ENV exportieren
+          $vcvarsPath = Join-Path $installationPath "VC\\Auxiliary\\Build\\vcvars64.bat"
+          if (-not (Test-Path $vcvarsPath)) { throw "vcvars64.bat nicht gefunden!" }
+          echo "VCVARS64=$vcvarsPath" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Installiere zusätzliche Tools
         shell: powershell
         run: |
           choco install -y --no-progress cmake git ninja 7zip nsis
 
-      - name: Prüfe Toolchain
+      - name: Zeige Pfad zu MSBuild.exe
         shell: powershell
         run: |
-          Write-Host "MSBuild Version:"
+          $msbuild = Get-Command msbuild.exe -ErrorAction SilentlyContinue
+          if ($msbuild) {
+            Write-Host "MSBuild.exe gefunden unter: $($msbuild.Source)"
+          } else {
+            Write-Warning "MSBuild.exe nicht im PATH gefunden."
+          }
+
+      - name: Prüfe Toolchain
+        shell: cmd
+        run: |
+          call "%VCVARS64%"
+          echo MSBuild Version:
+          where msbuild
           msbuild -version
-          Write-Host "cl.exe Version:"
+          echo cl.exe Version:
           cl.exe /?
 
       - name: Setup abgeschlossen

@@ -16,7 +16,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           keep_minimum_runs: 10
           delete_workflow_pattern: |
-            build
-            release
-            test
-            delete-old-runs
+            Build and Release Phoenix-FirestormOS OpenAL WebRTC AVX2 Windows
+            Windows Server 2025 Setup Neu
+            Delete old workflow runs
+            Auto Pull from Firestorm Repository
+            Release Phoenix-FirestormOS
+            Windows Server 2025 Setup

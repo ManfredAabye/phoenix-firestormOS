@@ -129,16 +129,19 @@ jobs:
 
           echo ℹ️ Versionierung der Abhängigkeiten:          
           echo 🔧 CMake Version:
-          cmake --version      
-          echo 🐍 Python Version:
-          python --version      
-          echo 🔧 Git Version:
-          git --version      
-          echo 📦 Autobuild Version:
-          autobuild --version
+          cmake --version
           where cmake || echo CMake nicht gefunden!
+          
+          echo 🐍 Python Version:
+          python --version
           where python || echo Python nicht gefunden!
+          
+          echo 🔧 Git Version:
+          git --version
           where git || echo Git nicht gefunden!
+          
+          echo 📦 Autobuild Version:
+          autobuild --version    
           where autobuild || echo Autobuild nicht gefunden!
 
           echo ℹ️ Installables konfigurieren
@@ -187,6 +190,30 @@ jobs:
         shell: cmd
         run: |
           echo Firestorm Build fertig!
+
+      - name: Zeige Build-Logs bei Fehler
+        shell: cmd
+        if: failure()
+        run: |
+          echo 🔍 Zeige Logs bei Fehler:
+          if exist "Firestorm_Build\phoenix-firestorm\build-vc170-64\logs\build_windows.log" (
+            type "Firestorm_Build\phoenix-firestorm\build-vc170-64\logs\build_windows.log"
+          )
+          if exist "Firestorm_Build\phoenix-firestorm\build-vc170-64\logs\error.log" (
+            type "Firestorm_Build\phoenix-firestorm\build-vc170-64\logs\error.log"
+          )
+          if exist "Firestorm_Build\phoenix-firestorm\build-vc170-64\CMakeFiles\CMakeError.log" (
+            type "Firestorm_Build\phoenix-firestorm\build-vc170-64\CMakeFiles\CMakeError.log"
+          )
+
+      - name: Lade Logs als Artefakt hoch
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            Firestorm_Build/phoenix-firestorm/build-vc170-64/logs/*.log
+            Firestorm_Build/phoenix-firestorm/build-vc170-64/CMakeFiles/*.log
 
   release:
     needs: build

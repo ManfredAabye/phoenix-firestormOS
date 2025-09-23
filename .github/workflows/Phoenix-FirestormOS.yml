@@ -28,7 +28,7 @@ jobs:
           @echo off
           setlocal enabledelayedexpansion
 
-          :: Git-Konfliktbereinigung
+          echo ℹ️ Git-Konfliktbereinigung
           set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
           set "PATH=%PATH:C:\Program Files\Git\cmd;%PATH%"
           set "GIT_BIN=%ProgramFiles%\Git\usr\bin"
@@ -39,7 +39,7 @@ jobs:
               echo Git link.exe nicht gefunden. Kein Umbenennen nötig.
           )
 
-          :: Dynamisch Visual Studio Toolchain finden
+          echo ℹ️ Dynamisch Visual Studio Toolchain finden
           set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
           if not exist "%VSWHERE%" (
               echo vswhere.exe nicht gefunden!
@@ -58,7 +58,7 @@ jobs:
               exit /b 1
           )
 
-          :: Build-Variablen
+          echo ℹ️ Build-Variablen
           set "SCRIPT_DIR=%CD%"
           set "BUILD_DIR=%SCRIPT_DIR%\Firestorm_Build"
           set "VENV_DIR=%BUILD_DIR%\venv"
@@ -77,7 +77,7 @@ jobs:
           mkdir "%BUILD_DIR%" 2>nul
           if not exist "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
 
-          :: Python venv
+          echo ℹ️ Python venv
           if not exist "%VENV_DIR%" (
               python -m venv "%VENV_DIR%"
               call "%VENV_DIR%\Scripts\activate.bat"
@@ -87,7 +87,7 @@ jobs:
               call "%VENV_DIR%\Scripts\activate.bat"
           )
 
-          :: Ressourcen kopieren
+          echo ℹ️ Ressourcen kopieren
           if exist "%FS_INCLUDE_SOURCE%" (
               xcopy /E /I /Y "%FS_INCLUDE_SOURCE%" "%FS_INCLUDE_DEST%\" >nul
           )
@@ -95,7 +95,7 @@ jobs:
           set "ASSIMP_ROOT=%FS_INCLUDE_DEST%\assimp-windows64-5.2.5-r3"
           set "OPENAL_ROOT=%FS_INCLUDE_DEST%\openal-1.24.2-r1-windows64-13245988487"
 
-          :: Repositories klonen
+          echo ℹ️ Repositories klonen
           if not exist "%BUILD_DIR%\phoenix-firestorm\.git" (
               git clone "https://github.com/FirestormViewer/phoenix-firestorm.git" "%BUILD_DIR%\phoenix-firestorm"
           ) else (
@@ -108,26 +108,26 @@ jobs:
               git -C "%BUILD_DIR%\fs-build-variables" pull
           )
 
-          :: Zusätzliche Dateien kopieren
+          echo ℹ️ Zusätzliche Dateien kopieren
           xcopy /y fs_include\vivox_logo.png Firestorm_Build\phoenix-firestorm\indra\newview\skins\default\textures\3p_icons\
           xcopy /E /I /Y "Skin\skins.xml" "Firestorm_Build\phoenix-firestorm\indra\newview\skins"
           xcopy /E /I /Y "Skin\singularity" "Firestorm_Build\phoenix-firestorm\indra\newview\skins\singularity"
           xcopy /E /I /Y "fs_include\OPENAL.cmake" "Firestorm_Build\phoenix-firestorm\indra\cmake"
           xcopy /E /I /Y "fs_include\Assimp.cmake" "Firestorm_Build\phoenix-firestorm\indra\cmake"
 
-          :: Autobuild vorbereiten
+          echo ℹ️ Autobuild vorbereiten
           set "AUTOBUILD_VSVER=170"
           python -m pip install -r "%BUILD_DIR%\phoenix-firestorm\requirements.txt"
           copy /Y "%SCRIPT_DIR%\fs_include\autobuild.xml" "%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
 
-          :: Installables konfigurieren
+          echo ℹ️ Installables konfigurieren
           autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
           autobuild installables remove assimp
           autobuild installables add assimp platform=windows64 url=https://github.com/secondlife/3p-assimp/releases/download/v5.2.5-r3/assimp-windows64-5.2.5-r3.tar.bz2 hash=8b878487089380b43a8b2109dfc6ab8bbebd4009 hash_algorithm=sha1
           autobuild installables remove webrtc
           autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
 
-          :: Build starten
+          echo ℹ️ Build starten
           echo Starte Build Prozess...
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           if errorlevel 1 (

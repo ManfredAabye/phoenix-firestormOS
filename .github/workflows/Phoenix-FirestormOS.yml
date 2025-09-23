@@ -1,4 +1,4 @@
-hname: Build and Release Phoenix-FirestormOS OpenAL WebRTC AVX2 Windows
+name: Build and Release Phoenix-FirestormOS OpenAL WebRTC AVX2 Windows
 
 on:
   workflow_dispatch:

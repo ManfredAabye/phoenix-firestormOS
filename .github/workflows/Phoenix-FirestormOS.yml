@@ -1,4 +1,4 @@
-name: Build and Release Phoenix-FirestormOS OpenAL WebRTC AVX2 Windows
+hname: Build and Release Phoenix-FirestormOS OpenAL WebRTC AVX2 Windows
 
 on:
   workflow_dispatch:
@@ -142,7 +142,7 @@ jobs:
           dir /b "%OUTPUT_DIR%"
           @REM Oberhalb darf nichts verändert werden, wir befinden uns noch im CMD bereich der Build wurde erstellt und trägt den Namen (Platzhalter=*): Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe
 
-          REM Setup-Datei extrahieren
+          echo Setup-Datei extrahieren
           setlocal EnableDelayedExpansion
           set "RELEASE_DIR=Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
           set "SETUP_FILE="

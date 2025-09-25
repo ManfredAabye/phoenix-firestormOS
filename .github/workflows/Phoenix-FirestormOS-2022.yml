@@ -1,4 +1,4 @@
-name: Build and Release Phoenix-FirestormOS OpenAL WebRTC AVX2 Windows64
+name: Build and Release Phoenix-FirestormOS 2022
 
 on:
   workflow_dispatch:
@@ -161,4 +161,5 @@ jobs:
           tag_name: ${{ steps.extract.outputs.tag_name }}
           name: "Phoenix-FirestormOS OpenAL WebRTC AVX2 ${{ steps.extract.outputs.tag_name }}"
           body: "Unofficial Automatic Nightly Build from Developer Version"
+
           files: ${{ steps.extract.outputs.setup_file }}

@@ -52,65 +52,24 @@ jobs:
           
           echo PATH für Git CMD gesetzt.
 
-          echo ℹ️ Dynamisch Visual Studio Toolchain finden
-          echo DEBUG: Suche Visual Studio mit vswhere...
-          set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-          if not exist "%VSWHERE%" (
-              echo vswhere.exe nicht gefunden!
-              echo DEBUG: Versuche alternative Pfade...
-              if exist "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" (
-                  set "VSWHERE=C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-              ) else (
-                  exit /b 1
-              )
-          )
-
-          echo Suche Visual Studio Installation...
-          set "VSINSTALL="
-          for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
-              set "VSINSTALL=%%i"
-              echo Gefunden: %%i
-          )
-
-          if "%VSINSTALL%"=="" (
-              echo Visual Studio Installation nicht gefunden!
-              exit /b 1
-          )
-
-          set "VSVARSALL=%VSINSTALL%\VC\Auxiliary\Build\vcvarsall.bat"
-          if exist "%VSVARSALL%" (
-              call "%VSVARSALL%" x64
-              
-              :: Zusätzliche Build-Umgebungsvariablen für Stabilität
-              set "MSBUILD_MAX_CPU_COUNT=1"
-              set "UseMultipleWorkerProcesses=false"
-              set "BuildInParallel=false"
-              set "CL=/MP1"
-              set "_CL_=%CL%"
-              
-              :: Windows SDK-Pfad sicherstellen
-              echo Suche Windows SDK...
-              for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.Windows10SDK -property installationPath 2^>nul`) do (
-                  if exist "%%i\Windows Kits\10" (
-                      set "WindowsSdkDir=%%i\Windows Kits\10"
-                      echo Windows SDK gefunden: %%i\Windows Kits\10
-                  )
-              )
-              
-              echo Visual Studio Environment konfiguriert
-              echo VSINSTALL: %VSINSTALL%
-              echo WindowsSdkDir: %WindowsSdkDir%
-              
-              :: Exportiere wichtige VS-Umgebungsvariablen für Subprozesse
-              echo Exportiere Visual Studio Umgebungsvariablen...
-              echo Current PATH: %PATH%
-              echo Current INCLUDE: %INCLUDE%
-              echo Current LIB: %LIB%
-              echo Current LIBPATH: %LIBPATH%
-          ) else (
-              echo Visual Studio Toolchain nicht gefunden unter %VSVARSALL%
-              exit /b 1
-          )
+          echo ℹ️ Visual Studio Environment Setup (vereinfacht)
+          :: Direkte VS-Konfiguration ohne vswhere und vcvarsall
+          
+          :: Direkte Pfad-Konfiguration für MSBuild
+          set "VS_PATH=C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+          if not exist "%VS_PATH%" set "VS_PATH=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
+          
+          echo Visual Studio Pfad: %VS_PATH%
+          
+          :: MSBuild direkt in PATH
+          set "PATH=%VS_PATH%\MSBuild\Current\Bin;%PATH%"
+          set "PATH=%VS_PATH%\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64;%PATH%"
+          
+          :: Einfache Build-Stabilität
+          set "MSBUILD_MAX_CPU_COUNT=1"
+          set "UseMultipleWorkerProcesses=false"
+          
+          echo Visual Studio Environment gesetzt
 
           echo ℹ️ Build-Variablen
           set "SCRIPT_DIR=%CD%"

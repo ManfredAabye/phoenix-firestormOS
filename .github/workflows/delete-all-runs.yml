@@ -1,0 +1,14 @@
+name: Delete all workflow runs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  delete-old-runs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          keep_minimum_runs: 3
+          token: ${{ secrets.GITHUB_TOKEN }}

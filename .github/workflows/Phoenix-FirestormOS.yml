@@ -29,25 +29,30 @@ jobs:
           setlocal enabledelayedexpansion
 
           echo ℹ️ Git-Konfliktbereinigung
-          :: Umfassendere Git-Link-Bereinigung für verschiedene Git-Installationen
-          set "GIT_PATHS=C:\Program Files\Git\usr\bin;C:\Program Files (x86)\Git\usr\bin;%ProgramFiles%\Git\usr\bin;%ProgramFiles(x86)%\Git\usr\bin"
+          :: Einfachere und robustere Git-Link-Bereinigung
           
-          for %%p in ("%GIT_PATHS:;=" "%") do (
-              if exist "%%~p\link.exe" (
-                  ren "%%~p\link.exe" glink.exe >nul 2>&1
-                  if exist "%%~p\glink.exe" (
-                      echo Git link.exe in %%~p erfolgreich in glink.exe umbenannt.
-                  )
+          if exist "C:\Program Files\Git\usr\bin\link.exe" (
+              ren "C:\Program Files\Git\usr\bin\link.exe" glink.exe >nul 2>&1
+              if exist "C:\Program Files\Git\usr\bin\glink.exe" (
+                  echo Git link.exe in C:\Program Files\Git\usr\bin erfolgreich in glink.exe umbenannt.
+              )
+          )
+          
+          if exist "C:\Program Files (x86)\Git\usr\bin\link.exe" (
+              ren "C:\Program Files (x86)\Git\usr\bin\link.exe" glink.exe >nul 2>&1
+              if exist "C:\Program Files (x86)\Git\usr\bin\glink.exe" (
+                  echo Git link.exe in C:\Program Files (x86)\Git\usr\bin erfolgreich in glink.exe umbenannt.
               )
           )
           
           :: PATH bereinigen - Git-Binärpfade entfernen, die Konflikte verursachen können
-          set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
-          set "PATH=%PATH:C:\Program Files (x86)\Git\usr\bin;=%"
+          call set "PATH=%%PATH:C:\Program Files\Git\usr\bin;=%%"
+          call set "PATH=%%PATH:C:\Program Files (x86)\Git\usr\bin;=%%"
           
           :: Git-CMD-Pfad sicherstellen
-          set "PATH=C:\Program Files\Git\cmd;%PATH%"
-          if not exist "C:\Program Files\Git\cmd" (
+          if exist "C:\Program Files\Git\cmd" (
+              set "PATH=C:\Program Files\Git\cmd;%PATH%"
+          ) else if exist "C:\Program Files (x86)\Git\cmd" (
               set "PATH=C:\Program Files (x86)\Git\cmd;%PATH%"
           )
 
@@ -58,8 +63,16 @@ jobs:
               exit /b 1
           )
 
-          for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
+          echo Suche Visual Studio Installation...
+          set "VSINSTALL="
+          for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
               set "VSINSTALL=%%i"
+              echo Gefunden: %%i
+          )
+
+          if "%VSINSTALL%"=="" (
+              echo Visual Studio Installation nicht gefunden!
+              exit /b 1
           )
 
           set "VSVARSALL=%VSINSTALL%\VC\Auxiliary\Build\vcvarsall.bat"
@@ -74,8 +87,12 @@ jobs:
               set "_CL_=%CL%"
               
               :: Windows SDK-Pfad sicherstellen
-              for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.Windows10SDK -property installationPath`) do (
-                  set "WindowsSdkDir=%%i\Windows Kits\10"
+              echo Suche Windows SDK...
+              for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.Windows10SDK -property installationPath 2^>nul`) do (
+                  if exist "%%i\Windows Kits\10" (
+                      set "WindowsSdkDir=%%i\Windows Kits\10"
+                      echo Windows SDK gefunden: %%i\Windows Kits\10
+                  )
               )
               
               echo Visual Studio Environment konfiguriert

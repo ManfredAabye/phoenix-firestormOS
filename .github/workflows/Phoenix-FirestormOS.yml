@@ -29,14 +29,26 @@ jobs:
           setlocal enabledelayedexpansion
 
           echo ℹ️ Git-Konfliktbereinigung
+          :: Umfassendere Git-Link-Bereinigung für verschiedene Git-Installationen
+          set "GIT_PATHS=C:\Program Files\Git\usr\bin;C:\Program Files (x86)\Git\usr\bin;%ProgramFiles%\Git\usr\bin;%ProgramFiles(x86)%\Git\usr\bin"
+          
+          for %%p in ("%GIT_PATHS:;=" "%") do (
+              if exist "%%~p\link.exe" (
+                  ren "%%~p\link.exe" glink.exe >nul 2>&1
+                  if exist "%%~p\glink.exe" (
+                      echo Git link.exe in %%~p erfolgreich in glink.exe umbenannt.
+                  )
+              )
+          )
+          
+          :: PATH bereinigen - Git-Binärpfade entfernen, die Konflikte verursachen können
           set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
-          set "PATH=%PATH:C:\Program Files\Git\cmd;%PATH%"
-          set "GIT_BIN=%ProgramFiles%\Git\usr\bin"
-          if exist "%GIT_BIN%\link.exe" (
-              ren "%GIT_BIN%\link.exe" glink.exe
-              echo Git link.exe wurde erfolgreich in glink.exe umbenannt.
-          ) else (
-              echo Git link.exe nicht gefunden. Kein Umbenennen nötig.
+          set "PATH=%PATH:C:\Program Files (x86)\Git\usr\bin;=%"
+          
+          :: Git-CMD-Pfad sicherstellen
+          set "PATH=C:\Program Files\Git\cmd;%PATH%"
+          if not exist "C:\Program Files\Git\cmd" (
+              set "PATH=C:\Program Files (x86)\Git\cmd;%PATH%"
           )
 
           echo ℹ️ Dynamisch Visual Studio Toolchain finden
@@ -53,6 +65,22 @@ jobs:
           set "VSVARSALL=%VSINSTALL%\VC\Auxiliary\Build\vcvarsall.bat"
           if exist "%VSVARSALL%" (
               call "%VSVARSALL%" x64
+              
+              :: Zusätzliche Build-Umgebungsvariablen für Stabilität
+              set "MSBUILD_MAX_CPU_COUNT=1"
+              set "UseMultipleWorkerProcesses=false"
+              set "BuildInParallel=false"
+              set "CL=/MP1"
+              set "_CL_=%CL%"
+              
+              :: Windows SDK-Pfad sicherstellen
+              for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.Windows10SDK -property installationPath`) do (
+                  set "WindowsSdkDir=%%i\Windows Kits\10"
+              )
+              
+              echo Visual Studio Environment konfiguriert
+              echo VSINSTALL: %VSINSTALL%
+              echo WindowsSdkDir: %WindowsSdkDir%
           ) else (
               echo Visual Studio Toolchain nicht gefunden unter %VSVARSALL%
               exit /b 1
@@ -60,7 +88,8 @@ jobs:
 
           echo ℹ️ Build-Variablen
           set "SCRIPT_DIR=%CD%"
-          set "BUILD_DIR=%SCRIPT_DIR%\Firestorm_Build"
+          :: Kürzere Pfade verwenden, um Windows-Pfadlängenbegrenzungen zu vermeiden
+          set "BUILD_DIR=C:\fbuild"
           set "VENV_DIR=%BUILD_DIR%\venv"
           set "AUTOBUILD_INSTALL_DIR=%BUILD_DIR%\packages"
           set "ARCH=64"
@@ -68,7 +97,7 @@ jobs:
           set "OUTPUT_DIR=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
           set "AUTO_BUILD_CONFIG=%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
           set "AUTOBUILD_VARIABLES_FILE=%BUILD_DIR%\fs-build-variables\variables"
-          set "AUTOBUILD_TEMP=%SCRIPT_DIR%\temp"
+          set "AUTOBUILD_TEMP=C:\ftemp"
           set "TMP=%AUTOBUILD_TEMP%"
           set "TEMP=%AUTOBUILD_TEMP%"
           set "FS_INCLUDE_SOURCE=%SCRIPT_DIR%\fs_include"
@@ -136,38 +165,120 @@ jobs:
 
           echo ℹ️ Build starten
           echo Starte Build Prozess...
+          
+          echo ℹ️ Debugging: Überprüfe Autobuild-Konfiguration
+          if not exist "%AUTO_BUILD_CONFIG%" (
+              echo FEHLER: autobuild.xml nicht gefunden unter %AUTO_BUILD_CONFIG%
+              exit /b 1
+          )
+          
+          echo ℹ️ Configure-Phase
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           if errorlevel 1 (
-              echo Configure fehlgeschlagen!
+              echo FEHLER: Configure fehlgeschlagen mit Code %ERRORLEVEL%!
+              echo Weitere Informationen in den Logs...
+              dir /s "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" 2>nul
+              exit /b 1
           )
-          echo Baue Projekt...
+          
+          echo ℹ️ Build-Phase
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
           if errorlevel 1 (
-              echo Build fehlgeschlagen!
+              echo FEHLER: Build fehlgeschlagen mit Code %ERRORLEVEL%!
+              echo Überprüfe Build-Verzeichnis...
+              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" (
+                  dir /s "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" 2>nul
+              )
+              echo Überprüfe Output-Verzeichnis...
+              if exist "%OUTPUT_DIR%" (
+                  dir /b "%OUTPUT_DIR%" 2>nul
+              ) else (
+                  echo Output-Verzeichnis %OUTPUT_DIR% existiert nicht!
+              )
+              exit /b 1
           )
 
-          dir /b "%OUTPUT_DIR%"
+          echo ℹ️ Build erfolgreich abgeschlossen
+          if exist "%OUTPUT_DIR%" (
+              echo Inhalt des Output-Verzeichnisses:
+              dir /b "%OUTPUT_DIR%"
+          ) else (
+              echo WARNUNG: Output-Verzeichnis %OUTPUT_DIR% nicht gefunden
+          )
           @REM Oberhalb darf nichts verändert werden, wir befinden uns noch im CMD bereich der Build wurde erstellt und trägt den Namen (Platzhalter=*): Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe
 
-          echo Setup-Datei extrahieren
+          echo ℹ️ Setup-Datei extrahieren
           setlocal EnableDelayedExpansion
-          set "RELEASE_DIR=Firestorm_Build\phoenix-firestorm\build-vc170-64\newview\Release"
+          set "RELEASE_DIR=%OUTPUT_DIR%"
           set "SETUP_FILE="
-          for %%F in ("%RELEASE_DIR%\*Setup.exe") do (
-            set "SETUP_FILE=%%F"
-            goto :found
+          
+          echo Suche Setup-Datei in: %RELEASE_DIR%
+          if not exist "%RELEASE_DIR%" (
+              echo FEHLER: Release-Verzeichnis %RELEASE_DIR% existiert nicht!
+              
+              :: Fallback: Suche in anderen möglichen Verzeichnissen
+              echo Suche in alternativen Verzeichnissen...
+              set "ALT_DIRS=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview;%BUILD_DIR%\phoenix-firestorm\build-vc170-64;%BUILD_DIR%\phoenix-firestorm"
+              
+              for %%d in ("%ALT_DIRS:;=" "%") do (
+                  if exist "%%~d" (
+                      echo Gefunden: %%~d
+                      for /r "%%~d" %%f in (*Setup.exe) do (
+                          if exist "%%f" (
+                              set "SETUP_FILE=%%f"
+                              set "RELEASE_DIR=%%~d"
+                              echo Setup-Datei gefunden in: %%f
+                              goto :found
+                          )
+                      )
+                  )
+              )
+              
+              echo FEHLER: Keine Setup.exe in bekannten Verzeichnissen gefunden!
+              echo Verfügbare Dateien im Build-Verzeichnis:
+              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" (
+                  dir /s /b "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\*.exe" 2>nul
+              )
+              exit /b 1
           )
-          echo Setup.exe nicht gefunden
+          
+          :: Hauptsuche nach Setup-Datei
+          for %%F in ("%RELEASE_DIR%\*Setup.exe") do (
+              if exist "%%F" (
+                  set "SETUP_FILE=%%F"
+                  goto :found
+              )
+          )
+          
+          :: Fallback: Rekursive Suche
+          echo Setup.exe nicht im Hauptverzeichnis gefunden, suche rekursiv...
+          for /r "%RELEASE_DIR%" %%F in (*Setup.exe) do (
+              if exist "%%F" (
+                  set "SETUP_FILE=%%F"
+                  goto :found
+              )
+          )
+          
+          echo FEHLER: Setup.exe nicht gefunden
+          echo Verfügbare Dateien im Release-Verzeichnis:
+          dir /b "%RELEASE_DIR%" 2>nul
           exit /b 1
+          
           :found
+          echo Setup-Datei gefunden: !SETUP_FILE!
           for %%A in ("!SETUP_FILE!") do set "BASENAME=%%~nxA"
           set "tmp=!BASENAME:Phoenix-FirestormOS-WebRTC_AVX2-=!"
           set "VERSION=!tmp:_Setup.exe=!"
           set "TAGNAME=!VERSION:-=.!"
+          
+          echo Extrahierte Version: !VERSION!
+          echo Tag-Name: !TAGNAME!
+          
           echo setup_file=!SETUP_FILE!>>"%GITHUB_OUTPUT%"
           echo tag_name=!TAGNAME!>>"%GITHUB_OUTPUT%"
 
-          dir /b "%RELEASE_DIR%"
+          echo ℹ️ Release-Verzeichnis Inhalt:
+          dir /b "%RELEASE_DIR%" 2>nul
           
       - name: Firestorm Build fertig
         shell: cmd

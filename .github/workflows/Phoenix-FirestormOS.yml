@@ -81,6 +81,13 @@ jobs:
               echo Visual Studio Environment konfiguriert
               echo VSINSTALL: %VSINSTALL%
               echo WindowsSdkDir: %WindowsSdkDir%
+              
+              :: Exportiere wichtige VS-Umgebungsvariablen für Subprozesse
+              echo Exportiere Visual Studio Umgebungsvariablen...
+              echo Current PATH: %PATH%
+              echo Current INCLUDE: %INCLUDE%
+              echo Current LIB: %LIB%
+              echo Current LIBPATH: %LIBPATH%
           ) else (
               echo Visual Studio Toolchain nicht gefunden unter %VSVARSALL%
               exit /b 1
@@ -102,6 +109,12 @@ jobs:
           set "TEMP=%AUTOBUILD_TEMP%"
           set "FS_INCLUDE_SOURCE=%SCRIPT_DIR%\fs_include"
           set "FS_INCLUDE_DEST=%BUILD_DIR%\fs_include"
+          
+          :: CMake Compiler-Pfade explizit setzen
+          for /f "tokens=*" %%i in ('where cl.exe 2^>nul') do set "CMAKE_C_COMPILER=%%i"
+          for /f "tokens=*" %%i in ('where cl.exe 2^>nul') do set "CMAKE_CXX_COMPILER=%%i"
+          echo CMAKE_C_COMPILER: %CMAKE_C_COMPILER%
+          echo CMAKE_CXX_COMPILER: %CMAKE_CXX_COMPILER%
 
           mkdir "%BUILD_DIR%" 2>nul
           if not exist "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
@@ -144,10 +157,10 @@ jobs:
           )
 
           echo ℹ️ Zusätzliche Dateien kopieren
-          xcopy /y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\vivox_logo.png" "Firestorm_Build\phoenix-firestorm\indra\newview\skins\default\textures\3p_icons\"
-          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\skins.xml" "Firestorm_Build\phoenix-firestorm\indra\newview\skins"
-          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\singularity" "Firestorm_Build\phoenix-firestorm\indra\newview\skins\singularity"
-          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\OPENAL.cmake" "Firestorm_Build\phoenix-firestorm\indra\cmake"
+          xcopy /y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\vivox_logo.png" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins\default\textures\3p_icons\" 2>nul
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\skins.xml" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins" 2>nul
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\singularity" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins\singularity" 2>nul
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\OPENAL.cmake" "%BUILD_DIR%\phoenix-firestorm\indra\cmake" 2>nul
 
           echo ℹ️ Autobuild vorbereiten
           set "AUTOBUILD_VSVER=170"
@@ -155,10 +168,14 @@ jobs:
           copy /Y "%SCRIPT_DIR%\fs_include\autobuild.xml" "%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
 
           echo ℹ️ Installables konfigurieren
+          cd /d "%BUILD_DIR%\phoenix-firestorm"
+          
           autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
-
-          autobuild installables remove webrtc
+          if errorlevel 1 echo WARNUNG: OpenAL installables Konfiguration fehlgeschlagen
+                  
+          autobuild installables remove webrtc 2>nul
           autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
+          if errorlevel 1 echo WARNUNG: WebRTC installables Konfiguration fehlgeschlagen
 
           echo ℹ️ Build starten
           echo Starte Build Prozess...
@@ -170,15 +187,51 @@ jobs:
           )
           
           echo ℹ️ Configure-Phase
+          cd /d "%BUILD_DIR%\phoenix-firestorm"
+          
+          :: Erzwinge CMD statt bash für autobuild
+          set "AUTOBUILD_WIN32_CMAKE_GENERATOR=Visual Studio 17 2022"
+          set "SHELL=cmd"
+          
+          echo Starte Configure mit folgender Konfiguration:
+          echo - Config-Datei: %AUTO_BUILD_CONFIG%
+          echo - Arbeitsverzeichnis: %CD%
+          echo - Architektur: 64
+          echo - Konfiguration: ReleaseFS_open
+          echo - CMAKE_C_COMPILER: %CMAKE_C_COMPILER%
+          echo - CMAKE_CXX_COMPILER: %CMAKE_CXX_COMPILER%
+          
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
-          if errorlevel 1 (
-              echo FEHLER: Configure fehlgeschlagen mit Code %ERRORLEVEL%!
-              echo Weitere Informationen in den Logs...
+          set "CONFIGURE_EXIT_CODE=%ERRORLEVEL%"
+          
+          if %CONFIGURE_EXIT_CODE% neq 0 (
+              echo FEHLER: Configure fehlgeschlagen mit Code %CONFIGURE_EXIT_CODE%!
+              echo ========== CONFIGURE-LOGS ANALYSIEREN ==========
+              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" (
+                  echo Inhalt von build_windows.log:
+                  type "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log"
+              )
+              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\CMakeFiles\CMakeConfigureLog.yaml" (
+                  echo CMake Configure Log:
+                  type "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\CMakeFiles\CMakeConfigureLog.yaml"
+              )
+              echo ================================================
               dir /s "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" 2>nul
               exit /b 1
           )
           
+          echo ℹ️ Überprüfe ob Firestorm.sln generiert wurde
+          if not exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\Firestorm.sln" (
+              echo FEHLER: Firestorm.sln wurde nicht generiert!
+              echo Verfügbare Dateien im Build-Verzeichnis:
+              dir /b "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" 2>nul
+              exit /b 1
+          ) else (
+              echo ✅ Firestorm.sln erfolgreich generiert
+          )
+          
           echo ℹ️ Build-Phase
+          echo Starte Build in: %CD%
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
           if errorlevel 1 (
               echo FEHLER: Build fehlgeschlagen mit Code %ERRORLEVEL%!

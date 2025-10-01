@@ -287,18 +287,44 @@ jobs:
               
               :: Fallback: Suche in anderen möglichen Verzeichnissen
               echo Suche in alternativen Verzeichnissen...
-              set "ALT_DIRS=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview;%BUILD_DIR%\phoenix-firestorm\build-vc170-64;%BUILD_DIR%\phoenix-firestorm"
               
-              for %%d in ("%ALT_DIRS:;=" "%") do (
-                  if exist "%%~d" (
-                      echo Gefunden: %%~d
-                      for /r "%%~d" %%f in (*Setup.exe) do (
-                          if exist "%%f" (
-                              set "SETUP_FILE=%%f"
-                              set "RELEASE_DIR=%%~d"
-                              echo Setup-Datei gefunden in: %%f
-                              goto :found
-                          )
+              :: Explizite Verzeichnis-Checks ohne String-Ersetzung
+              set "ALT_DIR1=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview"
+              set "ALT_DIR2=%BUILD_DIR%\phoenix-firestorm\build-vc170-64"
+              set "ALT_DIR3=%BUILD_DIR%\phoenix-firestorm"
+              
+              if exist "%ALT_DIR1%" (
+                  echo Prüfe: %ALT_DIR1%
+                  for /r "%ALT_DIR1%" %%f in (*Setup.exe) do (
+                      if exist "%%f" (
+                          set "SETUP_FILE=%%f"
+                          set "RELEASE_DIR=%ALT_DIR1%"
+                          echo Setup-Datei gefunden in: %%f
+                          goto :found
+                      )
+                  )
+              )
+              
+              if exist "%ALT_DIR2%" (
+                  echo Prüfe: %ALT_DIR2%
+                  for /r "%ALT_DIR2%" %%f in (*Setup.exe) do (
+                      if exist "%%f" (
+                          set "SETUP_FILE=%%f"
+                          set "RELEASE_DIR=%ALT_DIR2%"
+                          echo Setup-Datei gefunden in: %%f
+                          goto :found
+                      )
+                  )
+              )
+              
+              if exist "%ALT_DIR3%" (
+                  echo Prüfe: %ALT_DIR3%
+                  for /r "%ALT_DIR3%" %%f in (*Setup.exe) do (
+                      if exist "%%f" (
+                          set "SETUP_FILE=%%f"
+                          set "RELEASE_DIR=%ALT_DIR3%"
+                          echo Setup-Datei gefunden in: %%f
+                          goto :found
                       )
                   )
               )

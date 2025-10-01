@@ -1,0 +1,48 @@
+name: Release Phoenix-FirestormOS
+
+on:
+  workflow_call:
+    inputs:
+      setup_file:
+        required: true
+        type: string
+      tag_name:
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: windows-2025
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Verify Setup File
+        shell: cmd
+        run: |
+          if not exist "${{ inputs.setup_file }}" (
+            echo ERROR: Setup-Datei nicht gefunden: ${{ inputs.setup_file }}
+            exit /b 1
+          )
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ inputs.tag_name }}
+          name: "Phoenix-FirestormOS Build ${{ inputs.tag_name }}"
+          draft: false
+          prerelease: true
+          generate_release_notes: true
+
+      - name: Upload Build Artifacts
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+            ${{ inputs.setup_file }}
+            ${{ github.workspace }}/Firestorm_Build/phoenix-firestorm/build-vc170-64/newview/Release/*.dll

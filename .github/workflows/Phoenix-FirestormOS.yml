@@ -29,20 +29,15 @@ jobs:
           setlocal enabledelayedexpansion
 
           echo ℹ️ Git-Konfliktbereinigung
-          :: Einfachere und robustere Git-Link-Bereinigung
-          
+          :: Git-Konflikte vermeiden (einfach und robust)
           if exist "C:\Program Files\Git\usr\bin\link.exe" (
               ren "C:\Program Files\Git\usr\bin\link.exe" glink.exe >nul 2>&1
-              if exist "C:\Program Files\Git\usr\bin\glink.exe" (
-                  echo Git link.exe in C:\Program Files\Git\usr\bin erfolgreich in glink.exe umbenannt.
-              )
+              echo Git link.exe erfolgreich umbenannt
           )
           
           if exist "C:\Program Files (x86)\Git\usr\bin\link.exe" (
               ren "C:\Program Files (x86)\Git\usr\bin\link.exe" glink.exe >nul 2>&1
-              if exist "C:\Program Files (x86)\Git\usr\bin\glink.exe" (
-                  echo Git link.exe in C:\Program Files (x86)\Git\usr\bin erfolgreich in glink.exe umbenannt.
-              )
+              echo Git link.exe x86 erfolgreich umbenannt
           )
           
           :: PATH bereinigen übersprungen - Git-Konflikte durch Umbenennung bereits gelöst

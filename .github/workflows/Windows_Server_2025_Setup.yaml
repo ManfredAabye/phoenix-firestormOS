@@ -1,0 +1,92 @@
+name: Windows Server 2025 Setup Neu
+
+on:
+  workflow_call:
+    outputs:
+      setup_complete:
+        description: "Setup abgeschlossen"
+        value: true
+
+jobs:
+  setup:
+    runs-on: windows-2025
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bereinige Build- und Temp-Verzeichnisse
+        shell: powershell
+        run: |
+          Write-Host "Bereinige C:\\Firestorm_Build und TEMP"
+          Remove-Item -Path 'C:\\Firestorm_Build' -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:TEMP\\*" -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Installiere Chocolatey falls nicht vorhanden
+        shell: powershell
+        run: |
+          if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
+            Write-Host "Installiere Chocolatey..."
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            refreshenv
+          } else {
+            Write-Host "Chocolatey ist bereits installiert."
+          }
+
+      - name: Installiere Visual Studio Build Tools und Windows 11 SDK
+        shell: powershell
+        run: |
+          $params = @(
+            "--add Microsoft.VisualStudio.Workload.VCTools",
+            "--add Microsoft.VisualStudio.Component.Windows11SDK.22621",
+            "--includeRecommended",
+            "--passive",
+            "--locale en-US"
+          ) -join ' '
+          choco install -y --no-progress visualstudio2022buildtools --package-parameters="$params"
+
+      - name: Pfade für MSVC und MSBuild hinzufügen
+        shell: powershell
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\\Microsoft Visual Studio\\Installer\\vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            Invoke-WebRequest -Uri "https://github.com/microsoft/vswhere/releases/latest/download/vswhere.exe" -OutFile $vswhere
+          }
+          $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installationPath) { throw "Visual Studio Build Tools wurden nicht gefunden!" }
+
+          # Pfad zu vcvars64.bat in ENV exportieren
+          $vcvarsPath = Join-Path $installationPath "VC\\Auxiliary\\Build\\vcvars64.bat"
+          if (-not (Test-Path $vcvarsPath)) { throw "vcvars64.bat nicht gefunden!" }
+          echo "VCVARS64=$vcvarsPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Installiere zusätzliche Tools
+        shell: powershell
+        run: |
+          choco install -y --no-progress cmake git ninja 7zip nsis
+
+      - name: Zeige Pfad zu MSBuild.exe
+        shell: powershell
+        run: |
+          $msbuild = Get-Command msbuild.exe -ErrorAction SilentlyContinue
+          if ($msbuild) {
+            Write-Host "MSBuild.exe gefunden unter: $($msbuild.Source)"
+          } else {
+            Write-Warning "MSBuild.exe nicht im PATH gefunden."
+          }
+
+      - name: Prüfe Toolchain
+        shell: cmd
+        run: |
+          call "%VCVARS64%"
+          echo MSBuild Version:
+          where msbuild
+          msbuild -version
+          echo cl.exe Version:
+          cl.exe /?
+
+      - name: Setup abgeschlossen
+        shell: bash
+        run: echo "setup_complete=true" >> $GITHUB_OUTPUT

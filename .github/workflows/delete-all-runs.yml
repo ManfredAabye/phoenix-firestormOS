@@ -7,8 +7,29 @@ jobs:
   delete-old-runs:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete all old workflow runs
-        uses: Mattraks/delete-workflow-runs@v2
-        with:
-          keep_minimum_runs: 3
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Delete workflow runs using GitHub CLI
+        run: |
+          echo "🗑️ Lösche alle Workflow-Läufe außer den neuesten 3..."
+          
+          # Alle Workflows im Repository abrufen
+          workflows=$(gh api repos/${{ github.repository }}/actions/workflows --jq '.workflows[].id')
+          
+          for workflow_id in $workflows; do
+            echo "Bearbeite Workflow ID: $workflow_id"
+            
+            # Alle Läufe für diesen Workflow abrufen (außer den neuesten 3)
+            runs=$(gh api "repos/${{ github.repository }}/actions/workflows/$workflow_id/runs?per_page=100" --jq '.workflow_runs[3:][].id')
+            
+            for run_id in $runs; do
+              echo "Lösche Lauf: $run_id"
+              gh api "repos/${{ github.repository }}/actions/runs/$run_id" -X DELETE || echo "Fehler beim Löschen von $run_id"
+              sleep 1  # Rate limiting vermeiden
+            done
+          done
+          
+          echo "✅ Bereinigung abgeschlossen!"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -15,6 +15,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setze Lange Dateinamen
+        shell: powershell
+        run: |
+          Write-Host "Aktiviere Long Path Support für Windows Server 2025..."
+          
+          # Prüfe aktuelle Einstellung
+          $currentValue = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -ErrorAction SilentlyContinue
+          if ($currentValue) {
+              Write-Host "Aktuelle LongPathsEnabled Einstellung: $($currentValue.LongPathsEnabled)"
+          } else {
+              Write-Host "LongPathsEnabled Registry-Eintrag existiert noch nicht."
+          }
+          
+          # Setze Long Path Support
+          try {
+              New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force | Out-Null
+              Write-Host "✅ Long Path Support erfolgreich aktiviert."
+              
+              # Verifikation
+              $newValue = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled"
+              Write-Host "Neue Einstellung: $($newValue.LongPathsEnabled)"
+              
+              # Zusätzlich: Git Long Path Support aktivieren
+              Write-Host "Aktiviere Git Long Path Support..."
+              git config --global core.longpaths true
+              Write-Host "✅ Git Long Path Support aktiviert."
+              
+          } catch {
+              Write-Error "❌ Fehler beim Setzen von Long Path Support: $_"
+              exit 1
+          }
+
       - name: Bereinige Build- und Temp-Verzeichnisse
         shell: powershell
         run: |

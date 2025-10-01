@@ -9,7 +9,7 @@ jobs:
 
   build:
     needs: setup
-    runs-on: windows-2025 # explizit, damit die Eigenarten der neuen Version berücksichtigt werden
+    runs-on: windows-2025
     defaults:
       run:
         shell: cmd
@@ -46,8 +46,9 @@ jobs:
           )
           
           :: PATH bereinigen - Git-Binärpfade entfernen, die Konflikte verursachen können
-          call set "PATH=%%PATH:C:\Program Files\Git\usr\bin;=%%"
-          call set "PATH=%%PATH:C:\Program Files (x86)\Git\usr\bin;=%%"
+          echo Bereinige PATH von Git-Binärpfaden...
+          set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+          set "PATH=%PATH:C:\Program Files (x86)\Git\usr\bin;=%"
           
           :: Git-CMD-Pfad sicherstellen
           if exist "C:\Program Files\Git\cmd" (
@@ -55,12 +56,20 @@ jobs:
           ) else if exist "C:\Program Files (x86)\Git\cmd" (
               set "PATH=C:\Program Files (x86)\Git\cmd;%PATH%"
           )
+          
+          echo Bereinigte PATH-Variable gesetzt.
 
           echo ℹ️ Dynamisch Visual Studio Toolchain finden
+          echo DEBUG: Suche Visual Studio mit vswhere...
           set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
           if not exist "%VSWHERE%" (
               echo vswhere.exe nicht gefunden!
-              exit /b 1
+              echo DEBUG: Versuche alternative Pfade...
+              if exist "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" (
+                  set "VSWHERE=C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+              ) else (
+                  exit /b 1
+              )
           )
 
           echo Suche Visual Studio Installation...

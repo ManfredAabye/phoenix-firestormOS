@@ -18,10 +18,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Installiere Python 3.10.11
+      - name: Installiere Python 3.13.3
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10.11'
+          python-version: '3.13.3'
 
       - name: Firestorm Build in Single CMD Process
         run: |
@@ -45,10 +45,8 @@ jobs:
               )
           )
           
-          :: PATH bereinigen - Git-Binärpfade entfernen, die Konflikte verursachen können
-          echo Bereinige PATH von Git-Binärpfaden...
-          set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
-          set "PATH=%PATH:C:\Program Files (x86)\Git\usr\bin;=%"
+          :: PATH bereinigen übersprungen - Git-Konflikte durch Umbenennung bereits gelöst
+          echo Git-Konflikte durch link.exe Umbenennung bereits behoben.
           
           :: Git-CMD-Pfad sicherstellen
           if exist "C:\Program Files\Git\cmd" (
@@ -57,7 +55,7 @@ jobs:
               set "PATH=C:\Program Files (x86)\Git\cmd;%PATH%"
           )
           
-          echo Bereinigte PATH-Variable gesetzt.
+          echo PATH für Git CMD gesetzt.
 
           echo ℹ️ Dynamisch Visual Studio Toolchain finden
           echo DEBUG: Suche Visual Studio mit vswhere...

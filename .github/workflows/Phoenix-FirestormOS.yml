@@ -160,9 +160,24 @@ jobs:
           echo - AVX2: aktiviert
           echo - Package: aktiviert
           
-          autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC -DLL_TESTS:BOOL=FALSE -DFMOD:BOOL=OFF -DUSE_OPENAL=ON
-          if errorlevel 1 (
-              echo FEHLER: Configure fehlgeschlagen!
+          :: Probiere verschiedene Configure-Ansätze
+          echo === ERSTER VERSUCH: Standard Parameter ===
+          autobuild configure --config-file="%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
+          set "CONFIGURE_EXIT=%ERRORLEVEL%"
+          
+          if %CONFIGURE_EXIT% neq 0 (
+              echo === ZWEITER VERSUCH: Mit CMAKE-Defines ===
+              autobuild configure --config-file="%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC -DLL_TESTS:BOOL=FALSE -DFMOD:BOOL=OFF -DUSE_OPENAL:BOOL=ON
+              set "CONFIGURE_EXIT=%ERRORLEVEL%"
+          )
+          
+          if %CONFIGURE_EXIT% neq 0 (
+              echo === DRITTER VERSUCH: Direkte Flags ===
+              autobuild configure --config-file="%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --openal --avx2 --package --chan WebRTC
+              set "CONFIGURE_EXIT=%ERRORLEVEL%"
+          )
+          if %CONFIGURE_EXIT% neq 0 (
+              echo FEHLER: Alle Configure-Versuche fehlgeschlagen!
               echo ===== CONFIGURE DEBUG INFO =====
               echo Prüfe autobuild.xml Konfiguration:
               if exist "%AUTO_BUILD_CONFIG%" (
@@ -177,6 +192,9 @@ jobs:
                   findstr /i "openal\|webrtc\|avx2\|package" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" 2>nul
               )
               
+              echo ===== AUTOBUILD DEBUG =====
+              autobuild --help 2>nul | findstr /i "configure\|openal\|avx2" 2>nul
+              
               exit /b 1
           )
           
@@ -184,21 +202,34 @@ jobs:
           echo ========== CONFIGURE VERIFICATION ==========
           if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" (
               echo Checking configure results:
-              findstr /i "openal\|webrtc\|avx2\|package" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log"
+              type "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" | findstr /i "openal\|webrtc\|avx2\|package"
               
               :: Prüfe kritische Flags
               findstr /c:"OPENAL: true" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" >nul
               if errorlevel 1 (
-                  echo WARNUNG: OPENAL nicht aktiviert in Configure!
+                  echo KRITISCHER FEHLER: OPENAL nicht aktiviert!
+                  echo Das wird den copy_w_viewer_manifest Fehler verursachen!
+                  
+                  :: Zeige vollständiges Log für Debugging
+                  echo ===== VOLLSTÄNDIGES CONFIGURE LOG =====
+                  type "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log"
+                  exit /b 1
               ) else (
                   echo SUCCESS: OPENAL aktiviert
               )
               
               findstr /c:"PACKAGE: true" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" >nul
               if errorlevel 1 (
-                  echo WARNUNG: PACKAGE nicht aktiviert in Configure!
+                  echo WARNUNG: PACKAGE nicht aktiviert!
               ) else (
                   echo SUCCESS: PACKAGE aktiviert
+              )
+              
+              findstr /c:"AVX2: true" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" >nul
+              if errorlevel 1 (
+                  echo WARNUNG: AVX2 nicht aktiviert!
+              ) else (
+                  echo SUCCESS: AVX2 aktiviert
               )
           )
           

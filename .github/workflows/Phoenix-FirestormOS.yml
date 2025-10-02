@@ -149,10 +149,57 @@ jobs:
               echo # Auto-generated variables file > "%AUTOBUILD_VARIABLES_FILE%"
           )
           
-          autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
+          :: Wichtig: Setze spezifische Umgebungsvariablen für OpenAL
+          set "USE_OPENAL=ON"
+          set "FMOD=OFF"
+          set "LL_TESTS=OFF"
+          
+          echo Starte Configure mit expliziten Parametern...
+          echo - OpenAL: aktiviert
+          echo - WebRTC: aktiviert  
+          echo - AVX2: aktiviert
+          echo - Package: aktiviert
+          
+          autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC -DLL_TESTS:BOOL=FALSE -DFMOD:BOOL=OFF -DUSE_OPENAL=ON
           if errorlevel 1 (
               echo FEHLER: Configure fehlgeschlagen!
+              echo ===== CONFIGURE DEBUG INFO =====
+              echo Prüfe autobuild.xml Konfiguration:
+              if exist "%AUTO_BUILD_CONFIG%" (
+                  echo autobuild.xml gefunden
+                  findstr /i "openal\|webrtc\|avx2" "%AUTO_BUILD_CONFIG%" 2>nul
+              ) else (
+                  echo FEHLER: autobuild.xml nicht gefunden!
+              )
+              
+              echo Prüfe configure_firestorm.sh Log:
+              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" (
+                  findstr /i "openal\|webrtc\|avx2\|package" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" 2>nul
+              )
+              
               exit /b 1
+          )
+          
+          :: Prüfe ob Configure erfolgreich war
+          echo ========== CONFIGURE VERIFICATION ==========
+          if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" (
+              echo Checking configure results:
+              findstr /i "openal\|webrtc\|avx2\|package" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log"
+              
+              :: Prüfe kritische Flags
+              findstr /c:"OPENAL: true" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" >nul
+              if errorlevel 1 (
+                  echo WARNUNG: OPENAL nicht aktiviert in Configure!
+              ) else (
+                  echo SUCCESS: OPENAL aktiviert
+              )
+              
+              findstr /c:"PACKAGE: true" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" >nul
+              if errorlevel 1 (
+                  echo WARNUNG: PACKAGE nicht aktiviert in Configure!
+              ) else (
+                  echo SUCCESS: PACKAGE aktiviert
+              )
           )
           
           :: Firestorm.sln prüfen

@@ -114,11 +114,47 @@ jobs:
           
           :: Zusätzliche Dateien kopieren (wie V45.bat)
           echo ========== ZUSÄTZLICHE DATEIEN ==========
+          
+          :: Prüfe ob deutsches Repository vorhanden ist
+          if not exist "%BUILD_DIR%\fs-build-firestorm-viewer-german\" (
+              echo FEHLER: Deutsches Repository nicht gefunden!
+              echo Das ist KRITISCH für OPENAL.cmake!
+              exit /b 1
+          )
+          
+          echo Kopiere kritische CMAKE-Dateien...
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\OPENAL.cmake" "%BUILD_DIR%\phoenix-firestorm\indra\cmake" 2>nul
+          if errorlevel 1 (
+              echo FEHLER: OPENAL.cmake konnte nicht kopiert werden!
+              echo Das wird CMAKE OpenAL-Erkennung verhindern!
+              exit /b 1
+          ) else (
+              echo SUCCESS: OPENAL.cmake kopiert
+          )
+          
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\Assimp.cmake" "%BUILD_DIR%\phoenix-firestorm\indra\cmake" 2>nul
+          
+          echo Kopiere weitere Dateien...
           xcopy /y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\vivox_logo.png" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins\default\textures\3p_icons\" 2>nul
           xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\skins.xml" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins" 2>nul
           xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\singularity" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins\singularity" 2>nul
-          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\OPENAL.cmake" "%BUILD_DIR%\phoenix-firestorm\indra\cmake" 2>nul
-          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\Assimp.cmake" "%BUILD_DIR%\phoenix-firestorm\indra\cmake" 2>nul
+          
+          :: Prüfe ob OPENAL.cmake wirklich existiert
+          if exist "%BUILD_DIR%\phoenix-firestorm\indra\cmake\OPENAL.cmake" (
+              echo SUCCESS: OPENAL.cmake ist verfügbar für CMAKE
+          ) else (
+              echo KRITISCHER FEHLER: OPENAL.cmake nicht in CMAKE-Verzeichnis!
+              echo CMAKE wird OpenAL nicht finden können!
+              
+              echo Debugging: Prüfe Quell-Datei:
+              if exist "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\OPENAL.cmake" (
+                  echo OPENAL.cmake existiert in deutschem Repository
+              ) else (
+                  echo FEHLER: OPENAL.cmake fehlt in deutschem Repository!
+              )
+              
+              exit /b 1
+          )
           
           :: Requirements installieren (wie V45.bat)
           cd /d "%BUILD_DIR%\phoenix-firestorm"
@@ -135,10 +171,24 @@ jobs:
           
           echo OpenAL konfigurieren...
           autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
+          if errorlevel 1 (
+              echo WARNUNG: OpenAL installables edit fehlgeschlagen
+          ) else (
+              echo SUCCESS: OpenAL installables konfiguriert
+          )
           
           echo WebRTC konfigurieren...
           autobuild installables remove webrtc 2>nul
           autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
+          if errorlevel 1 (
+              echo WARNUNG: WebRTC installables add fehlgeschlagen
+          ) else (
+              echo SUCCESS: WebRTC installables konfiguriert
+          )
+          
+          :: Prüfe installables Konfiguration
+          echo ========== INSTALLABLES VERIFICATION ==========
+          autobuild installables list | findstr /i "openal\|webrtc"
           
           :: Autobuild Configure (exakt wie V45.bat)
           echo ========== AUTOBUILD CONFIGURE ==========
@@ -215,7 +265,38 @@ jobs:
                   type "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log"
                   exit /b 1
               ) else (
-                  echo SUCCESS: OPENAL aktiviert
+                  echo SUCCESS: OPENAL Parameter akzeptiert
+                  
+                  :: Prüfe ob CMAKE OpenAL wirklich findet
+                  findstr /i "openal\|Found OpenAL\|USE_OPENAL" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" >nul
+                  if errorlevel 1 (
+                      echo WARNUNG: CMAKE findet OpenAL-Bibliotheken nicht!
+                      echo ===== DEBUGGING: OpenAL Integration =====
+                      
+                      :: Prüfe ob autobuild OpenAL installiert hat
+                      if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\packages\lib\release\OpenAL32.lib" (
+                          echo OpenAL32.lib gefunden in packages
+                      ) else (
+                          echo FEHLER: OpenAL32.lib NICHT in packages gefunden!
+                          
+                          echo Verfügbare packages:
+                          if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\packages\lib\release\" (
+                              dir "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\packages\lib\release\*openal*" 2>nul
+                              dir "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\packages\lib\release\*OpenAL*" 2>nul
+                          )
+                      )
+                      
+                      :: Prüfe CMake-Befehle für OpenAL
+                      echo CMAKE Files prüfen:
+                      if exist "%BUILD_DIR%\phoenix-firestorm\indra\cmake\OPENAL.cmake" (
+                          echo OPENAL.cmake gefunden - gut!
+                      ) else (
+                          echo FEHLER: OPENAL.cmake fehlt!
+                      )
+                      
+                  ) else (
+                      echo SUCCESS: CMAKE erkennt OpenAL korrekt
+                  )
               )
               
               findstr /c:"PACKAGE: true" "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" >nul

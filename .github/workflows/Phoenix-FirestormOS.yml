@@ -57,6 +57,7 @@ jobs:
           set "CONFIG=ReleaseFS_open"
           set "OUTPUT_DIR=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
           set "AUTO_BUILD_CONFIG=%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
+          set "AUTOBUILD_VARIABLES_FILE=%BUILD_DIR%\fs-build-variables\variables"
           set "AUTOBUILD_VSVER=170"
           
           :: TEMP-Umleitung (wie V45.bat)
@@ -114,6 +115,13 @@ jobs:
           
           :: Autobuild Configure (exakt wie V45.bat)
           echo ========== AUTOBUILD CONFIGURE ==========
+          echo AUTOBUILD_VARIABLES_FILE: %AUTOBUILD_VARIABLES_FILE%
+          if not exist "%AUTOBUILD_VARIABLES_FILE%" (
+              echo WARNUNG: AUTOBUILD_VARIABLES_FILE nicht gefunden: %AUTOBUILD_VARIABLES_FILE%
+              echo Erstelle leere Variables-Datei...
+              echo # Auto-generated variables file > "%AUTOBUILD_VARIABLES_FILE%"
+          )
+          
           autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           if errorlevel 1 (
               echo FEHLER: Configure fehlgeschlagen!

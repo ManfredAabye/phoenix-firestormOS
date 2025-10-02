@@ -93,6 +93,33 @@ jobs:
               git -C "%BUILD_DIR%\fs-build-variables" pull
           )
           
+          :: Zusätzliche Repositories für Deutsche Version (wie V45.bat)
+          if not exist "%BUILD_DIR%\fs-build-firestorm-viewer-german\.git" (
+              git clone "https://github.com/ManfredAabye/fs-build-firestorm-viewer-german.git" "%BUILD_DIR%\fs-build-firestorm-viewer-german"
+          ) else (
+              git -C "%BUILD_DIR%\fs-build-firestorm-viewer-german" pull
+          )
+          
+          :: fs_include kopieren (wichtig für copy_w_viewer_manifest!)
+          echo ========== FS_INCLUDE KOPIEREN ==========
+          set "FS_INCLUDE_SOURCE=%SCRIPT_DIR%\fs_include"
+          set "FS_INCLUDE_DEST=%BUILD_DIR%\fs_include"
+          
+          if exist "%FS_INCLUDE_SOURCE%" (
+              xcopy /E /I /Y "%FS_INCLUDE_SOURCE%" "%FS_INCLUDE_DEST%\" >nul
+              echo fs_include erfolgreich kopiert
+          ) else (
+              echo WARNUNG: fs_include nicht gefunden in: %FS_INCLUDE_SOURCE%
+          )
+          
+          :: Zusätzliche Dateien kopieren (wie V45.bat)
+          echo ========== ZUSÄTZLICHE DATEIEN ==========
+          xcopy /y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\vivox_logo.png" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins\default\textures\3p_icons\" 2>nul
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\skins.xml" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins" 2>nul
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\singularity" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins\singularity" 2>nul
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\OPENAL.cmake" "%BUILD_DIR%\phoenix-firestorm\indra\cmake" 2>nul
+          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\Assimp.cmake" "%BUILD_DIR%\phoenix-firestorm\indra\cmake" 2>nul
+          
           :: Requirements installieren (wie V45.bat)
           cd /d "%BUILD_DIR%\phoenix-firestorm"
           python -m pip install -r requirements.txt
@@ -140,7 +167,35 @@ jobs:
           autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
           if errorlevel 1 (
               echo FEHLER: Build fehlgeschlagen!
+              echo ===== DETAILLIERTE FEHLERANALYSE =====
+              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" (
+                  echo Build Windows Log:
+                  type "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log"
+              )
+              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\CMakeFiles\CMakeError.log" (
+                  echo CMake Error Log:
+                  type "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\CMakeFiles\CMakeError.log"
+              )
+              echo Prüfe copy_w_viewer_manifest Verzeichnis:
+              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\" (
+                  dir "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\*manifest*" 2>nul
+              )
               exit /b 1
+          )
+          
+          :: OpenAL DLLs kopieren (wichtig nach dem Build!)
+          echo ========== OPENAL DLLS KOPIEREN ==========
+          if exist "%FS_INCLUDE_DEST%\OpenAL32.dll" (
+              copy /Y "%FS_INCLUDE_DEST%\OpenAL32.dll" "%OUTPUT_DIR%\" >nul 2>&1
+              echo OpenAL32.dll kopiert
+          )
+          if exist "%FS_INCLUDE_DEST%\alut.dll" (
+              copy /Y "%FS_INCLUDE_DEST%\alut.dll" "%OUTPUT_DIR%\" >nul 2>&1
+              echo alut.dll kopiert
+          )
+          if exist "%FS_INCLUDE_DEST%\featuretable.txt" (
+              copy /Y "%FS_INCLUDE_DEST%\featuretable.txt" "%OUTPUT_DIR%\" >nul 2>&1
+              echo featuretable.txt kopiert
           )
           
           :: Package erstellen (wie V45.bat)

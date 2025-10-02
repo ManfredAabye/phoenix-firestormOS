@@ -23,106 +23,141 @@ jobs:
         with:
           python-version: '3.13.3'
 
-      - name: Phoenix Firestorm Build - Vereinfacht
+      - name: Firestorm Build wie 2_firestorm_building_V45.bat
         run: |
           @echo off
           setlocal enabledelayedexpansion
           
           echo ==============================================
-          echo Phoenix Firestorm Build - Vereinfacht
+          echo Firestorm Build nach V45.bat Vorlage
           echo ==============================================
           
-          :: Git-Konflikte vermeiden
+          :: Git-Konflikte vermeiden (wie in V45.bat)
+          set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
           if exist "C:\Program Files\Git\usr\bin\link.exe" (
               ren "C:\Program Files\Git\usr\bin\link.exe" glink.exe >nul 2>&1
           )
           
-          :: Build-Verzeichnisse
-          set "BUILD_DIR=C:\FB"
-          set "OUTPUT_DIR=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
-          
-          if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
-          cd /d "%BUILD_DIR%"
-          
-          :: Python venv
-          echo ========== PYTHON SETUP ==========
-          python -m venv venv
-          call venv\Scripts\activate.bat
-          python -m pip install --upgrade pip
-          python -m pip install llbase llsd autobuild
+          :: Visual Studio Environment (wie in V45.bat)
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           if errorlevel 1 (
-              echo FEHLER: Python Setup fehlgeschlagen!
-              exit /b 1
-          )
-          
-          :: Repository klonen
-          echo ========== REPOSITORY CLONE ==========
-          if not exist "phoenix-firestorm" (
-              git clone https://github.com/FirestormViewer/phoenix-firestorm.git
+              echo Fallback zu BuildTools...
+              call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64
               if errorlevel 1 (
-                  echo FEHLER: Git Clone fehlgeschlagen!
+                  echo FEHLER: Visual Studio vcvarsall.bat nicht gefunden!
                   exit /b 1
               )
           )
           
-          cd phoenix-firestorm
+          :: Build-Verzeichnisse (vereinfacht wie V45.bat)
+          set "SCRIPT_DIR=%CD%"
+          set "BUILD_DIR=%SCRIPT_DIR%\Firestorm_Build"
+          set "VENV_DIR=%BUILD_DIR%\venv"
+          set "ARCH=64"
+          set "CONFIG=ReleaseFS_open"
+          set "OUTPUT_DIR=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
+          set "AUTO_BUILD_CONFIG=%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
+          set "AUTOBUILD_VSVER=170"
+          
+          :: TEMP-Umleitung (wie V45.bat)
+          set "AUTOBUILD_TEMP=%SCRIPT_DIR%\temp"
+          if not exist "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
+          set "TMP=%AUTOBUILD_TEMP%"
+          set "TEMP=%AUTOBUILD_TEMP%"
+          
+          mkdir "%BUILD_DIR%" 2>nul
+          
+          :: Python venv (wie V45.bat)
+          echo ========== PYTHON SETUP ==========
+          if not exist "%VENV_DIR%" (
+              python -m venv "%VENV_DIR%"
+              call "%VENV_DIR%\Scripts\activate.bat"
+              python -m pip install --upgrade pip
+              python -m pip install --force-reinstall --no-cache-dir llbase llsd autobuild
+          ) else (
+              call "%VENV_DIR%\Scripts\activate.bat"
+          )
+          
+          :: Repositories klonen (wie V45.bat)
+          echo ========== REPOSITORY CLONE ==========
+          if not exist "%BUILD_DIR%\phoenix-firestorm\.git" (
+              git clone "https://github.com/FirestormViewer/phoenix-firestorm.git" "%BUILD_DIR%\phoenix-firestorm"
+          ) else (
+              git -C "%BUILD_DIR%\phoenix-firestorm" pull
+          )
+          
+          if not exist "%BUILD_DIR%\fs-build-variables\.git" (
+              git clone "https://github.com/FirestormViewer/fs-build-variables.git" "%BUILD_DIR%\fs-build-variables"
+          ) else (
+              git -C "%BUILD_DIR%\fs-build-variables" pull
+          )
+          
+          :: Requirements installieren (wie V45.bat)
+          cd /d "%BUILD_DIR%\phoenix-firestorm"
           python -m pip install -r requirements.txt
           if errorlevel 1 (
               echo FEHLER: Requirements Installation fehlgeschlagen!
               exit /b 1
           )
           
-          :: Autobuild Configure
+          :: 3p Bibliotheken konfigurieren (exakt wie V45.bat)
+          echo ========== 3P BIBLIOTHEKEN ==========
+          echo FMOD Studio entfernen...
+          autobuild installables remove fmodstudio 2>nul
+          
+          echo OpenAL konfigurieren...
+          autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
+          
+          echo WebRTC konfigurieren...
+          autobuild installables remove webrtc 2>nul
+          autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
+          
+          :: Autobuild Configure (exakt wie V45.bat)
           echo ========== AUTOBUILD CONFIGURE ==========
-          autobuild configure -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
+          autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
           if errorlevel 1 (
-              echo FEHLER: Autobuild Configure fehlgeschlagen!
-              echo ===== BUILD LOG =====
-              if exist "build-vc170-64\logs\build_windows.log" (
-                  type "build-vc170-64\logs\build_windows.log"
-              )
-              echo ===== CMAKE LOG =====
-              if exist "build-vc170-64\CMakeFiles\CMakeConfigureLog.yaml" (
-                  type "build-vc170-64\CMakeFiles\CMakeConfigureLog.yaml"
-              )
+              echo FEHLER: Configure fehlgeschlagen!
               exit /b 1
           )
           
-          :: Überprüfe Firestorm.sln
-          if not exist "build-vc170-64\Firestorm.sln" (
+          :: Firestorm.sln prüfen
+          if not exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\Firestorm.sln" (
               echo FEHLER: Firestorm.sln nicht generiert!
-              echo Build-Verzeichnis Inhalt:
-              dir "build-vc170-64\"
               exit /b 1
           )
           echo SUCCESS: Firestorm.sln gefunden
           
-          :: Autobuild Build
+          :: Autobuild Build (exakt wie V45.bat)
           echo ========== AUTOBUILD BUILD ==========
-          autobuild build -A 64 -c ReleaseFS_open --no-configure
+          autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
           if errorlevel 1 (
-              echo FEHLER: Autobuild Build fehlgeschlagen!
-              echo ===== BUILD LOG =====
-              if exist "build-vc170-64\logs\build_windows.log" (
-                  type "build-vc170-64\logs\build_windows.log"
-              )
+              echo FEHLER: Build fehlgeschlagen!
               exit /b 1
           )
           
-          :: Setup-Datei suchen
+          :: Package erstellen (wie V45.bat)
+          echo ========== PACKAGE ERSTELLEN ==========
+          autobuild package -A 64 --config-file autobuild.xml
+          if errorlevel 1 (
+              echo FEHLER: Package fehlgeschlagen!
+              exit /b 1
+          )
+          
+          :: Setup-Datei suchen (wie V45.bat)
           echo ========== SETUP FILE SEARCH ==========
-          if exist "%OUTPUT_DIR%\*Setup.exe" (
-              for %%f in ("%OUTPUT_DIR%\*Setup.exe") do (
+          for %%f in ("%OUTPUT_DIR%\*_Setup.exe") do (
+              if exist "%%f" (
                   echo setup_file=%%f>>"%GITHUB_OUTPUT%"
                   echo Setup gefunden: %%f
+                  goto :found
               )
-          ) else (
-              echo FEHLER: Keine Setup.exe gefunden!
-              echo Output-Verzeichnis Inhalt:
-              dir "%OUTPUT_DIR%"
-              exit /b 1
           )
           
+          echo FEHLER: Keine Setup.exe gefunden!
+          dir "%OUTPUT_DIR%"
+          exit /b 1
+          
+          :found
           echo ========== BUILD ERFOLGREICH ==========
           
       - name: Firestorm Build fertig

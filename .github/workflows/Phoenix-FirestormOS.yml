@@ -49,9 +49,9 @@ jobs:
               )
           )
           
-          :: Build-Verzeichnisse (vereinfacht wie V45.bat)
+          :: Build-Verzeichnisse (fest wie V45.bat)
           set "SCRIPT_DIR=%CD%"
-          set "BUILD_DIR=%SCRIPT_DIR%\Firestorm_Build"
+          set "BUILD_DIR=C:\Firestorm_Build"
           set "VENV_DIR=%BUILD_DIR%\venv"
           set "ARCH=64"
           set "CONFIG=ReleaseFS_open"
@@ -60,8 +60,8 @@ jobs:
           set "AUTOBUILD_VARIABLES_FILE=%BUILD_DIR%\fs-build-variables\variables"
           set "AUTOBUILD_VSVER=170"
           
-          :: TEMP-Umleitung (wie V45.bat)
-          set "AUTOBUILD_TEMP=%SCRIPT_DIR%\temp"
+          :: TEMP-Umleitung (fest wie V45.bat)
+          set "AUTOBUILD_TEMP=C:\ftemp"
           if not exist "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
           set "TMP=%AUTOBUILD_TEMP%"
           set "TEMP=%AUTOBUILD_TEMP%"

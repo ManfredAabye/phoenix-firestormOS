@@ -23,316 +23,107 @@ jobs:
         with:
           python-version: '3.13.3'
 
-      - name: Firestorm Build in Single CMD Process
+      - name: Phoenix Firestorm Build - Vereinfacht
         run: |
           @echo off
           setlocal enabledelayedexpansion
-
-          echo ℹ️ Git-Konfliktbereinigung
-          :: Git-Konflikte vermeiden (einfach und robust)
+          
+          echo ==============================================
+          echo Phoenix Firestorm Build - Vereinfacht
+          echo ==============================================
+          
+          :: Git-Konflikte vermeiden
           if exist "C:\Program Files\Git\usr\bin\link.exe" (
               ren "C:\Program Files\Git\usr\bin\link.exe" glink.exe >nul 2>&1
-              echo Git link.exe erfolgreich umbenannt
           )
           
-          if exist "C:\Program Files (x86)\Git\usr\bin\link.exe" (
-              ren "C:\Program Files (x86)\Git\usr\bin\link.exe" glink.exe >nul 2>&1
-              echo Git link.exe x86 erfolgreich umbenannt
-          )
-          
-          :: PATH bereinigen übersprungen - Git-Konflikte durch Umbenennung bereits gelöst
-          echo Git-Konflikte durch link.exe Umbenennung bereits behoben.
-          
-          :: Git-CMD-Pfad sicherstellen
-          if exist "C:\Program Files\Git\cmd" (
-              set "PATH=C:\Program Files\Git\cmd;%PATH%"
-          ) else if exist "C:\Program Files (x86)\Git\cmd" (
-              set "PATH=C:\Program Files (x86)\Git\cmd;%PATH%"
-          )
-          
-          echo PATH für Git CMD gesetzt.
-
-          echo ℹ️ Visual Studio Environment Setup (vereinfacht)
-          :: Direkte VS-Konfiguration ohne vswhere und vcvarsall
-          
-          :: Direkte Pfad-Konfiguration für MSBuild
-          set "VS_PATH=C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
-          if not exist "%VS_PATH%" set "VS_PATH=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
-          
-          echo Visual Studio Pfad: %VS_PATH%
-          
-          :: MSBuild direkt in PATH
-          set "PATH=%VS_PATH%\MSBuild\Current\Bin;%PATH%"
-          set "PATH=%VS_PATH%\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64;%PATH%"
-          
-          :: Einfache Build-Stabilität
-          set "MSBUILD_MAX_CPU_COUNT=1"
-          set "UseMultipleWorkerProcesses=false"
-          
-          echo Visual Studio Environment gesetzt
-
-          echo ℹ️ Build-Variablen
-          set "SCRIPT_DIR=%CD%"
-          :: Kürzere Pfade verwenden, um Windows-Pfadlängenbegrenzungen zu vermeiden
-          set "BUILD_DIR=C:\fbuild"
-          set "VENV_DIR=%BUILD_DIR%\venv"
-          set "AUTOBUILD_INSTALL_DIR=%BUILD_DIR%\packages"
-          set "ARCH=64"
-          set "CONFIG=ReleaseFS_open"
+          :: Build-Verzeichnisse
+          set "BUILD_DIR=C:\FB"
           set "OUTPUT_DIR=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview\Release"
-          set "AUTO_BUILD_CONFIG=%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
-          set "AUTOBUILD_VARIABLES_FILE=%BUILD_DIR%\fs-build-variables\variables"
-          set "AUTOBUILD_TEMP=C:\ftemp"
-          set "TMP=%AUTOBUILD_TEMP%"
-          set "TEMP=%AUTOBUILD_TEMP%"
-          set "FS_INCLUDE_SOURCE=%SCRIPT_DIR%\fs_include"
-          set "FS_INCLUDE_DEST=%BUILD_DIR%\fs_include"
           
-          :: CMake Compiler-Pfade explizit setzen
-          for /f "tokens=*" %%i in ('where cl.exe 2^>nul') do set "CMAKE_C_COMPILER=%%i"
-          for /f "tokens=*" %%i in ('where cl.exe 2^>nul') do set "CMAKE_CXX_COMPILER=%%i"
-          echo CMAKE_C_COMPILER: %CMAKE_C_COMPILER%
-          echo CMAKE_CXX_COMPILER: %CMAKE_CXX_COMPILER%
-
-          mkdir "%BUILD_DIR%" 2>nul
-          if not exist "%AUTOBUILD_TEMP%" mkdir "%AUTOBUILD_TEMP%"
-
-          echo ℹ️ Python venv
-          if not exist "%VENV_DIR%" (
-              python -m venv "%VENV_DIR%"
-              call "%VENV_DIR%\Scripts\activate.bat"
-              python -m pip install --upgrade pip
-              python -m pip install --force-reinstall --no-cache-dir llbase llsd autobuild
-          ) else (
-              call "%VENV_DIR%\Scripts\activate.bat"
-          )
-
-          echo ℹ️ Ressourcen kopieren
-          if exist "%FS_INCLUDE_SOURCE%" (
-              xcopy /E /I /Y "%FS_INCLUDE_SOURCE%" "%FS_INCLUDE_DEST%\" >nul
-          )
-
-          set "OPENAL_ROOT=%FS_INCLUDE_DEST%\openal-1.24.2-r1-windows64-13245988487"
-
-          echo ℹ️ Repositories klonen
-          if not exist "%BUILD_DIR%\phoenix-firestorm\.git" (
-              git clone "https://github.com/FirestormViewer/phoenix-firestorm.git" "%BUILD_DIR%\phoenix-firestorm"
-          ) else (
-              git -C "%BUILD_DIR%\phoenix-firestorm" pull
-          )
-
-          if not exist "%BUILD_DIR%\fs-build-variables\.git" (
-              git clone "https://github.com/FirestormViewer/fs-build-variables.git" "%BUILD_DIR%\fs-build-variables"
-          ) else (
-              git -C "%BUILD_DIR%\fs-build-variables" pull
-          )
-
-          :: 🔄 Zusätzliche Dateien holen oder aktualisieren
-          if not exist "%BUILD_DIR%\fs-build-firestorm-viewer-german\.git" (
-              git clone "https://github.com/ManfredAabye/fs-build-firestorm-viewer-german.git" "%BUILD_DIR%\fs-build-firestorm-viewer-german"
-          ) else (
-              git -C "%BUILD_DIR%\fs-build-firestorm-viewer-german" pull
-          )
-
-          echo ℹ️ Zusätzliche Dateien kopieren
-          xcopy /y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\vivox_logo.png" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins\default\textures\3p_icons\" 2>nul
-          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\skins.xml" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins" 2>nul
-          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\Skin\singularity" "%BUILD_DIR%\phoenix-firestorm\indra\newview\skins\singularity" 2>nul
-          xcopy /E /I /Y "%BUILD_DIR%\fs-build-firestorm-viewer-german\fs_include\OPENAL.cmake" "%BUILD_DIR%\phoenix-firestorm\indra\cmake" 2>nul
-
-          echo ℹ️ Autobuild vorbereiten
-          set "AUTOBUILD_VSVER=170"
-          python -m pip install -r "%BUILD_DIR%\phoenix-firestorm\requirements.txt"
-          copy /Y "%SCRIPT_DIR%\fs_include\autobuild.xml" "%BUILD_DIR%\phoenix-firestorm\autobuild.xml"
-
-          echo ℹ️ Installables konfigurieren
-          cd /d "%BUILD_DIR%\phoenix-firestorm"
+          if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
+          cd /d "%BUILD_DIR%"
           
-          autobuild installables edit openal platform=windows64 url=https://github.com/secondlife/3p-openal-soft/releases/download/v1.24.2-r1/openal-1.24.2-r1-windows64-13245988487.tar.zst hash_algorithm=sha1 hash=8ad24fba1191c9cb0d2ab36e64b04b4648a99f43
-          if errorlevel 1 echo WARNUNG: OpenAL installables Konfiguration fehlgeschlagen
-                  
-          autobuild installables remove webrtc 2>nul
-          autobuild installables add webrtc platform=windows64 url=https://github.com/secondlife/3p-webrtc-build/releases/download/m114.5735.08.73-alpha/webrtc-m114.5735.08.73-alpha.11958809572-windows64-11958809572.tar.zst hash_algorithm=sha1 hash=c7b329d6409576af6eb5b80655b007f52639c43b
-          if errorlevel 1 echo WARNUNG: WebRTC installables Konfiguration fehlgeschlagen
-
-          echo ℹ️ Build starten
-          echo Starte Build Prozess...
-          
-          echo ℹ️ Debugging: Überprüfe Autobuild-Konfiguration
-          if not exist "%AUTO_BUILD_CONFIG%" (
-              echo FEHLER: autobuild.xml nicht gefunden unter %AUTO_BUILD_CONFIG%
-              exit /b 1
-          )
-          
-          echo ℹ️ Configure-Phase
-          cd /d "%BUILD_DIR%\phoenix-firestorm"
-          
-          :: Erzwinge CMD statt bash für autobuild
-          set "AUTOBUILD_WIN32_CMAKE_GENERATOR=Visual Studio 17 2022"
-          set "SHELL=cmd"
-          
-          echo Starte Configure mit folgender Konfiguration:
-          echo - Config-Datei: %AUTO_BUILD_CONFIG%
-          echo - Arbeitsverzeichnis: %CD%
-          echo - Architektur: 64
-          echo - Konfiguration: ReleaseFS_open
-          echo - CMAKE_C_COMPILER: %CMAKE_C_COMPILER%
-          echo - CMAKE_CXX_COMPILER: %CMAKE_CXX_COMPILER%
-          
-          autobuild configure --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
-          set "CONFIGURE_EXIT_CODE=%ERRORLEVEL%"
-          
-          if %CONFIGURE_EXIT_CODE% neq 0 (
-              echo FEHLER: Configure fehlgeschlagen mit Code %CONFIGURE_EXIT_CODE%!
-              echo ========== CONFIGURE-LOGS ANALYSIEREN ==========
-              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log" (
-                  echo Inhalt von build_windows.log:
-                  type "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\logs\build_windows.log"
-              )
-              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\CMakeFiles\CMakeConfigureLog.yaml" (
-                  echo CMake Configure Log:
-                  type "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\CMakeFiles\CMakeConfigureLog.yaml"
-              )
-              echo ================================================
-              dir /s "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" 2>nul
-              exit /b 1
-          )
-          
-          echo ℹ️ Überprüfe ob Firestorm.sln generiert wurde
-          if not exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\Firestorm.sln" (
-              echo FEHLER: Firestorm.sln wurde nicht generiert!
-              echo Verfügbare Dateien im Build-Verzeichnis:
-              dir /b "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" 2>nul
-              exit /b 1
-          ) else (
-              echo ✅ Firestorm.sln erfolgreich generiert
-          )
-          
-          echo ℹ️ Build-Phase
-          echo Starte Build in: %CD%
-          autobuild build --config-file "%AUTO_BUILD_CONFIG%" -A 64 -c ReleaseFS_open --no-configure --verbose
+          :: Python venv
+          echo ========== PYTHON SETUP ==========
+          python -m venv venv
+          call venv\Scripts\activate.bat
+          python -m pip install --upgrade pip
+          python -m pip install llbase llsd autobuild
           if errorlevel 1 (
-              echo FEHLER: Build fehlgeschlagen mit Code %ERRORLEVEL%!
-              echo Überprüfe Build-Verzeichnis...
-              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" (
-                  dir /s "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" 2>nul
+              echo FEHLER: Python Setup fehlgeschlagen!
+              exit /b 1
+          )
+          
+          :: Repository klonen
+          echo ========== REPOSITORY CLONE ==========
+          if not exist "phoenix-firestorm" (
+              git clone https://github.com/FirestormViewer/phoenix-firestorm.git
+              if errorlevel 1 (
+                  echo FEHLER: Git Clone fehlgeschlagen!
+                  exit /b 1
               )
-              echo Überprüfe Output-Verzeichnis...
-              if exist "%OUTPUT_DIR%" (
-                  dir /b "%OUTPUT_DIR%" 2>nul
-              ) else (
-                  echo Output-Verzeichnis %OUTPUT_DIR% existiert nicht!
+          )
+          
+          cd phoenix-firestorm
+          python -m pip install -r requirements.txt
+          if errorlevel 1 (
+              echo FEHLER: Requirements Installation fehlgeschlagen!
+              exit /b 1
+          )
+          
+          :: Autobuild Configure
+          echo ========== AUTOBUILD CONFIGURE ==========
+          autobuild configure -A 64 -c ReleaseFS_open -- --avx2 --openal --package --chan WebRTC
+          if errorlevel 1 (
+              echo FEHLER: Autobuild Configure fehlgeschlagen!
+              echo ===== BUILD LOG =====
+              if exist "build-vc170-64\logs\build_windows.log" (
+                  type "build-vc170-64\logs\build_windows.log"
+              )
+              echo ===== CMAKE LOG =====
+              if exist "build-vc170-64\CMakeFiles\CMakeConfigureLog.yaml" (
+                  type "build-vc170-64\CMakeFiles\CMakeConfigureLog.yaml"
               )
               exit /b 1
           )
-
-          echo ℹ️ Build erfolgreich abgeschlossen
-          if exist "%OUTPUT_DIR%" (
-              echo Inhalt des Output-Verzeichnisses:
-              dir /b "%OUTPUT_DIR%"
+          
+          :: Überprüfe Firestorm.sln
+          if not exist "build-vc170-64\Firestorm.sln" (
+              echo FEHLER: Firestorm.sln nicht generiert!
+              echo Build-Verzeichnis Inhalt:
+              dir "build-vc170-64\"
+              exit /b 1
+          )
+          echo SUCCESS: Firestorm.sln gefunden
+          
+          :: Autobuild Build
+          echo ========== AUTOBUILD BUILD ==========
+          autobuild build -A 64 -c ReleaseFS_open --no-configure
+          if errorlevel 1 (
+              echo FEHLER: Autobuild Build fehlgeschlagen!
+              echo ===== BUILD LOG =====
+              if exist "build-vc170-64\logs\build_windows.log" (
+                  type "build-vc170-64\logs\build_windows.log"
+              )
+              exit /b 1
+          )
+          
+          :: Setup-Datei suchen
+          echo ========== SETUP FILE SEARCH ==========
+          if exist "%OUTPUT_DIR%\*Setup.exe" (
+              for %%f in ("%OUTPUT_DIR%\*Setup.exe") do (
+                  echo setup_file=%%f>>"%GITHUB_OUTPUT%"
+                  echo Setup gefunden: %%f
+              )
           ) else (
-              echo WARNUNG: Output-Verzeichnis %OUTPUT_DIR% nicht gefunden
-          )
-          @REM Oberhalb darf nichts verändert werden, wir befinden uns noch im CMD bereich der Build wurde erstellt und trägt den Namen (Platzhalter=*): Phoenix-FirestormOS-WebRTC_AVX2-*_Setup.exe
-
-          echo ℹ️ Setup-Datei extrahieren
-          setlocal EnableDelayedExpansion
-          set "RELEASE_DIR=%OUTPUT_DIR%"
-          set "SETUP_FILE="
-          
-          echo Suche Setup-Datei in: %RELEASE_DIR%
-          if not exist "%RELEASE_DIR%" (
-              echo FEHLER: Release-Verzeichnis %RELEASE_DIR% existiert nicht!
-              
-              :: Fallback: Suche in anderen möglichen Verzeichnissen
-              echo Suche in alternativen Verzeichnissen...
-              
-              :: Explizite Verzeichnis-Checks ohne String-Ersetzung
-              set "ALT_DIR1=%BUILD_DIR%\phoenix-firestorm\build-vc170-64\newview"
-              set "ALT_DIR2=%BUILD_DIR%\phoenix-firestorm\build-vc170-64"
-              set "ALT_DIR3=%BUILD_DIR%\phoenix-firestorm"
-              
-              if exist "%ALT_DIR1%" (
-                  echo Prüfe: %ALT_DIR1%
-                  for /r "%ALT_DIR1%" %%f in (*Setup.exe) do (
-                      if exist "%%f" (
-                          set "SETUP_FILE=%%f"
-                          set "RELEASE_DIR=%ALT_DIR1%"
-                          echo Setup-Datei gefunden in: %%f
-                          goto :found
-                      )
-                  )
-              )
-              
-              if exist "%ALT_DIR2%" (
-                  echo Prüfe: %ALT_DIR2%
-                  for /r "%ALT_DIR2%" %%f in (*Setup.exe) do (
-                      if exist "%%f" (
-                          set "SETUP_FILE=%%f"
-                          set "RELEASE_DIR=%ALT_DIR2%"
-                          echo Setup-Datei gefunden in: %%f
-                          goto :found
-                      )
-                  )
-              )
-              
-              if exist "%ALT_DIR3%" (
-                  echo Prüfe: %ALT_DIR3%
-                  for /r "%ALT_DIR3%" %%f in (*Setup.exe) do (
-                      if exist "%%f" (
-                          set "SETUP_FILE=%%f"
-                          set "RELEASE_DIR=%ALT_DIR3%"
-                          echo Setup-Datei gefunden in: %%f
-                          goto :found
-                      )
-                  )
-              )
-              
-              echo FEHLER: Keine Setup.exe in bekannten Verzeichnissen gefunden!
-              echo Verfügbare Dateien im Build-Verzeichnis:
-              if exist "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\" (
-                  dir /s /b "%BUILD_DIR%\phoenix-firestorm\build-vc170-64\*.exe" 2>nul
-              )
+              echo FEHLER: Keine Setup.exe gefunden!
+              echo Output-Verzeichnis Inhalt:
+              dir "%OUTPUT_DIR%"
               exit /b 1
           )
           
-          :: Hauptsuche nach Setup-Datei
-          for %%F in ("%RELEASE_DIR%\*Setup.exe") do (
-              if exist "%%F" (
-                  set "SETUP_FILE=%%F"
-                  goto :found
-              )
-          )
-          
-          :: Fallback: Rekursive Suche
-          echo Setup.exe nicht im Hauptverzeichnis gefunden, suche rekursiv...
-          for /r "%RELEASE_DIR%" %%F in (*Setup.exe) do (
-              if exist "%%F" (
-                  set "SETUP_FILE=%%F"
-                  goto :found
-              )
-          )
-          
-          echo FEHLER: Setup.exe nicht gefunden
-          echo Verfügbare Dateien im Release-Verzeichnis:
-          dir /b "%RELEASE_DIR%" 2>nul
-          exit /b 1
-          
-          :found
-          echo Setup-Datei gefunden: !SETUP_FILE!
-          for %%A in ("!SETUP_FILE!") do set "BASENAME=%%~nxA"
-          set "tmp=!BASENAME:Phoenix-FirestormOS-WebRTC_AVX2-=!"
-          set "VERSION=!tmp:_Setup.exe=!"
-          set "TAGNAME=!VERSION:-=.!"
-          
-          echo Extrahierte Version: !VERSION!
-          echo Tag-Name: !TAGNAME!
-          
-          echo setup_file=!SETUP_FILE!>>"%GITHUB_OUTPUT%"
-          echo tag_name=!TAGNAME!>>"%GITHUB_OUTPUT%"
-
-          echo ℹ️ Release-Verzeichnis Inhalt:
-          dir /b "%RELEASE_DIR%" 2>nul
+          echo ========== BUILD ERFOLGREICH ==========
           
       - name: Firestorm Build fertig
         shell: cmd

@@ -68,7 +68,7 @@ void main()
                 (tc.y > frame_rect_px.y + third_y - guide_thickness && tc.y < frame_rect_px.y + third_y + guide_thickness) ||
                 (tc.y > frame_rect_px.y + 2.0 * third_y - guide_thickness && tc.y < frame_rect_px.y + 2.0 * third_y + guide_thickness))
             {
-                diff.rgb = mix(diff.rgb, guide_color, 0.5);
+                diff.rgb = mix(diff.rgb, guide_color, 0.05);
             }
         }
     }

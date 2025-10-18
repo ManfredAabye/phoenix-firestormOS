@@ -2,6 +2,7 @@ name: Auto Pull from Firestorm Repository
 
 permissions:
   contents: write
+  workflows: write
 
 on:
   workflow_dispatch:
@@ -39,7 +40,7 @@ jobs:
             echo "❌ Keine Änderungen gefunden"
           fi
 
-      - name: Merge Änderungen und Push / PR-Fallback
+      - name: Merge Änderungen und Push / PR-Fallback (mit Konflikt-Auflösung)
         id: merge_and_push
         if: steps.check_changes.outputs.changes_detected == 'true'
         env:
@@ -50,10 +51,40 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-          # Merge die Änderungen von Firestorm
-          git merge --no-edit firestorm/${{ steps.get_default_branch.outputs.default_branch }}
+          # Versuch, automatisch zu mergen. Wenn Konflikte auftreten, lösen wir sie.
+          if git merge --no-edit "firestorm/${{ steps.get_default_branch.outputs.default_branch }}"; then
+            echo "merge_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "merge_success=false" >> $GITHUB_OUTPUT
+            echo "Konflikte erkannt — versuche automatische Auflösung"
 
-          # Basis-Branch (originaler Branch vor evtl. Umbenennung)
+            # Liste unmerged files
+            UNMERGED_FILES=$(git ls-files -u | awk '{print $4}' | sort -u)
+
+            for f in $UNMERGED_FILES; do
+              if [[ "$f" == .github/workflows/* ]]; then
+                # Für Workflow-Dateien: beziehe die Version von firestorm (theirs)
+                echo "Behalte firestorm-Version für $f"
+                git checkout --theirs -- "$f" || true
+                git add "$f" || true
+              else
+                # Für alle anderen Konflikte: behalte eigene Version (ours)
+                echo "Behalte eigene Version für $f"
+                git checkout --ours -- "$f" || true
+                git add "$f" || true
+              fi
+            done
+
+            # Commit der automatischen Auflösung
+            if git status --porcelain | grep -q '^'; then
+              git commit -m "Auto-merge: resolve conflicts (prefer firestorm for workflows)"
+            else
+              # Falls nichts zu committen ist, trotzdem fortfahren
+              echo "Keine Änderungen zum committen nach der Konfliktauflösung"
+            fi
+          fi
+
+          # Basis-Branch (aktueller Branch)
           BASE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
           echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
 
@@ -109,5 +140,3 @@ jobs:
             echo "$response"
             exit 1
           fi
-
-

@@ -1,13 +1,10 @@
 name: Auto Pull from Firestorm Repository
 
-# Erforderliche Rechte: erlaubt Pushes ins Repo und das Auslösen / Ändern von Workflows
 permissions:
   contents: write
   workflows: write
 
 on:
-  schedule:
-    - cron: '0 5 * * *'  # jeden Morgen 5 Uhr
   workflow_dispatch:
 
 jobs:
@@ -113,3 +110,4 @@ jobs:
             echo "$response"
             exit 1
           fi
+

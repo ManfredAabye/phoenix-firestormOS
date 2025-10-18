@@ -1,8 +1,13 @@
 name: Auto Pull from Firestorm Repository
 
+# Erforderliche Rechte: erlaubt Pushes ins Repo und das Auslösen / Ändern von Workflows
+permissions:
+  contents: write
+  workflows: write
+
 on:
   schedule:
-    - cron: '0 5 * * *'  # jeden Morgen 5 Uhr 0 5 * * *
+    - cron: '0 5 * * *'  # jeden Morgen 5 Uhr
   workflow_dispatch:
 
 jobs:
@@ -38,18 +43,73 @@ jobs:
             echo "❌ Keine Änderungen gefunden"
           fi
 
-      - name: Merge Änderungen
+      - name: Merge Änderungen und Push / PR-Fallback
+        id: merge_and_push
         if: steps.check_changes.outputs.changes_detected == 'true'
+        env:
+          GH_PUSH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git merge --no-edit firestorm/${{ steps.get_default_branch.outputs.default_branch }}
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          git push origin $CURRENT_BRANCH
 
-      - name: Starte Build Workflow bei Änderungen
-        if: steps.check_changes.outputs.changes_detected == 'true'
+          # Merge die Änderungen von Firestorm
+          git merge --no-edit firestorm/${{ steps.get_default_branch.outputs.default_branch }}
+
+          # Basis-Branch (originaler Branch vor evtl. Umbenennung)
+          BASE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+
+          # Origin so setzen, dass das Token für Push verwendet wird
+          git remote set-url origin https://x-access-token:${GH_PUSH_TOKEN}@github.com/${{ github.repository }}
+
+          # Versuche direkt zu pushen. Wenn das fehlschlägt (z.B. Branch-Protection), erstelle neuen Branch und pushe
+          if git push origin "$BASE_BRANCH"; then
+            echo "pushed=true" >> $GITHUB_OUTPUT
+            echo "pr_branch=" >> $GITHUB_OUTPUT
+            echo "✅ Direkt auf $BASE_BRANCH gepusht"
+          else
+            echo "pushed=false" >> $GITHUB_OUTPUT
+            NEW_BRANCH="firestorm-update-$(date +%s)"
+            git branch -m "$NEW_BRANCH"
+            git push -u origin "$NEW_BRANCH"
+            echo "pr_branch=$NEW_BRANCH" >> $GITHUB_OUTPUT
+            echo "ℹ️ Push blockiert; neuer Branch $NEW_BRANCH erstellt und gepusht"
+          fi
+
+      - name: Starte Build Workflow (wenn direkt gepusht)
+        if: steps.merge_and_push.outputs.pushed == 'true'
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Phoenix-FirestormOS.yml
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Erstelle Pull Request (wenn Push blockiert)
+        if: steps.merge_and_push.outputs.pushed == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PR_BRANCH="${{ steps.merge_and_push.outputs.pr_branch }}"
+          BASE_BRANCH="${{ steps.merge_and_push.outputs.base_branch }}"
+          echo "Erstelle Pull Request: $PR_BRANCH -> $BASE_BRANCH"
+
+          response=$(curl -s -X POST \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls \
+            -d "$(jq -n --arg t "Auto-sync: Merge Firestorm changes" \
+                        --arg head "$PR_BRANCH" \
+                        --arg base "$BASE_BRANCH" \
+                        --arg body "Automatisch erstellt: Änderungen aus Firestorm zusammengeführt." \
+                        '{title: $t, head: $head, base: $base, body: $body}')")
+
+          pr_url=$(echo "$response" | jq -r .html_url // empty)
+          if [ -n "$pr_url" ]; then
+            echo "✅ Pull Request erstellt: $pr_url"
+          else
+            echo "❌ Fehler beim Erstellen des Pull Requests:"
+            echo "$response"
+            exit 1
+          fi

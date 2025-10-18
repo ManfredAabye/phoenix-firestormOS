@@ -14,7 +14,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Checkout kann mit GITHUB_TOKEN erfolgen; Push/Dispatch nutzen später GH_PAT
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Hole Standard-Branch von Firestorm
@@ -40,18 +39,17 @@ jobs:
             echo "❌ Keine Änderungen gefunden"
           fi
 
-      - name: Merge Änderungen und Push / PR-Fallback (mit Konflikt-Auflösung)
+      - name: Merge Änderungen
         id: merge_and_push
         if: steps.check_changes.outputs.changes_detected == 'true'
         env:
-          GH_PUSH_TOKEN: ${{ secrets.GH_PAT }}   # <- Erforderlich: GH_PAT anlegen mit repo+workflow Scopes
+          GH_PAT: ${{ secrets.GH_PAT }}   # -> PAT mit repo+workflow scopes
         run: |
           set -euo pipefail
-
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-          # Versuch, automatisch zu mergen
+          # Merge versuchen
           if git merge --no-edit "firestorm/${{ steps.get_default_branch.outputs.default_branch }}"; then
             echo "merge_success=true" >> $GITHUB_OUTPUT
           else
@@ -62,34 +60,28 @@ jobs:
 
             for f in $UNMERGED_FILES; do
               if [[ "$f" == .github/workflows/* ]]; then
-                # Für Workflow-Dateien: beziehe die Version von firestorm (their)
-                echo "Behalte firestorm-Version für $f"
+                # Für Workflow-Dateien: beziehe die Version von firestorm (theirs)
                 git checkout --theirs -- "$f" || true
                 git add "$f" || true
               else
-                # Für andere Konflikte: behalte eigene Version (ours)
-                echo "Behalte eigene Version für $f"
+                # Für andere Dateien: behalte eigene Version (ours)
                 git checkout --ours -- "$f" || true
                 git add "$f" || true
               fi
             done
 
-            # Commit der Auflösung (falls notwendig)
             if git status --porcelain | grep -q '^'; then
               git commit -m "Auto-merge: resolve conflicts (prefer firestorm for workflows)"
-            else
-              echo "Keine Änderungen zum committen nach der Konfliktauflösung"
             fi
           fi
 
-          # Basis-Branch (aktueller Branch)
           BASE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
           echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
 
           # Origin so setzen, dass das PAT für Push verwendet wird
-          git remote set-url origin https://x-access-token:${GH_PUSH_TOKEN}@github.com/${{ github.repository }}
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
 
-          # Versuche direkt zu pushen. Wenn das fehlschlägt (z.B. Branch-Protection), erstelle neuen Branch und pushe
+          # Direkt pushen; falls abgelehnt (z.B. Branch-Protection), neuer Branch + Push
           if git push origin "$BASE_BRANCH"; then
             echo "pushed=true" >> $GITHUB_OUTPUT
             echo "pr_branch=" >> $GITHUB_OUTPUT
@@ -103,14 +95,14 @@ jobs:
             echo "ℹ️ Push blockiert; neuer Branch $NEW_BRANCH erstellt und gepusht"
           fi
 
-      - name: Starte Build Workflow (wenn direkt gepusht)
+      - name: Starte Build Workflow
         if: steps.merge_and_push.outputs.pushed == 'true'
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Phoenix-FirestormOS.yml
-          token: ${{ secrets.GH_PAT }}   # Dispatch benötigt workflow-Recht → GH_PAT
+          token: ${{ secrets.GH_PAT }}
 
-      - name: Erstelle Pull Request (wenn Push blockiert)
+      - name: Erstelle Pull Request
         if: steps.merge_and_push.outputs.pushed == 'false'
         env:
           GH_PAT: ${{ secrets.GH_PAT }}

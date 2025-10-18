@@ -1,4 +1,4 @@
-name: Auto Pull from Firestorm Repository
+name: Pull from Firestorm Repository
 
 permissions:
   contents: write
@@ -7,121 +7,56 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-and-update:
+  simple-pull:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout eigenes Repository
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Hole Standard-Branch von Firestorm
-        id: get_default_branch
+      - name: Hole Firestorm Standard-Branch
+        id: get_default
         run: |
           DEFAULT_BRANCH=$(curl -s https://api.github.com/repos/FirestormViewer/phoenix-firestorm | jq -r .default_branch)
           echo "default_branch=$DEFAULT_BRANCH" >> $GITHUB_OUTPUT
-          echo "📦 Standard-Branch ist: $DEFAULT_BRANCH"
 
-      - name: Firestorm Remote hinzufügen und fetchen
+      - name: Firestorm remote hinzufügen und fetchen
         run: |
           git remote add firestorm https://github.com/FirestormViewer/phoenix-firestorm.git
-          git fetch firestorm ${{ steps.get_default_branch.outputs.default_branch }}
+          git fetch firestorm ${{ steps.get_default.outputs.default_branch }}
 
-      - name: Check für Änderungen
-        id: check_changes
-        run: |
-          if ! git diff --quiet HEAD firestorm/${{ steps.get_default_branch.outputs.default_branch }}; then
-            echo "changes_detected=true" >> $GITHUB_OUTPUT
-            echo "✅ Änderungen gefunden"
-          else
-            echo "changes_detected=false" >> $GITHUB_OUTPUT
-            echo "❌ Keine Änderungen gefunden"
-          fi
-
-      # nur der relevante Schritt ersetzt: Merge Änderungen und Push / PR-Fallback
-      - name: Merge Änderungen und Push PR-Fallback
-        id: merge_and_push
-        if: steps.check_changes.outputs.changes_detected == 'true'
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+      - name: Erstelle temporären Branch von Firestorm ohne Workflows
         run: |
           set -euo pipefail
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+          # aktuellen Branch merken
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "current_branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
 
-          # Merge versuchen, bei Konflikten automatische Auflösung:
-          if git merge --no-edit "firestorm/${{ steps.get_default_branch.outputs.default_branch }}"; then
-            echo "merge_ok=true" >> $GITHUB_OUTPUT
-          else
-            echo "merge_ok=false" >> $GITHUB_OUTPUT
-            UNMERGED=$(git ls-files -u | awk '{print $4}' | sort -u || true)
-            for f in $UNMERGED; do
-              if [[ "$f" == .github/workflows/* ]]; then
-                # workflow-Dateien von firestorm übernehmen
-                git checkout --theirs -- "$f" || true
-                git add "$f" || true
-              else
-                # für andere Dateien eigene Version behalten
-                git checkout --ours -- "$f" || true
-                git add "$f" || true
-              fi
-            done
-            if git status --porcelain | grep -q '^'; then
-              git commit -m "Auto-merge: resolve conflicts (prefer firestorm for workflows)"
-            fi
+          # neuen lokalen Branch aus Firestorm-Branch erstellen
+          git checkout -b tmp-firestorm "firestorm/${{ steps.get_default.outputs.default_branch }}"
+
+          # .github/workflows entfernen (falls vorhanden) damit kein Workflow-File zurückkommt
+          if [ -d ".github/workflows" ]; then
+            git rm -rf .github/workflows || true
+            git commit -m "Remove workflows before merge" || true
           fi
 
-          BASE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+          # zurück zum ursprünglichen Branch
+          git checkout "$CURRENT_BRANCH"
 
-          # nutze PAT für Push
-          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
-
-          if git push origin "$BASE_BRANCH"; then
-            echo "pushed=true" >> $GITHUB_OUTPUT
-            echo "pr_branch=" >> $GITHUB_OUTPUT
-          else
-            echo "pushed=false" >> $GITHUB_OUTPUT
-            NEW_BRANCH="firestorm-update-$(date +%s)"
-            git branch -m "$NEW_BRANCH"
-            git push -u origin "$NEW_BRANCH"
-            echo "pr_branch=$NEW_BRANCH" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Starte Build Workflow
-        if: steps.merge_and_push.outputs.pushed == 'true'
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: Phoenix-FirestormOS.yml
-          token: ${{ secrets.GH_PAT }}
-
-      - name: Erstelle Pull Request
-        if: steps.merge_and_push.outputs.pushed == 'false'
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+      - name: Merge tmp-firestorm in aktuellen Branch
         run: |
           set -euo pipefail
-          PR_BRANCH="${{ steps.merge_and_push.outputs.pr_branch }}"
-          BASE_BRANCH="${{ steps.merge_and_push.outputs.base_branch }}"
-          echo "Erstelle Pull Request: $PR_BRANCH -> $BASE_BRANCH"
+          # Merge aus tmp-firestorm (enthält keine Workflow-Dateien)
+          git merge --no-edit tmp-firestorm || { echo "Merge fehlgeschlagen - bitte manuell prüfen"; exit 1; }
 
-          response=$(curl -s -X POST \
-            -H "Authorization: token ${GH_PAT}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls \
-            -d "$(jq -n --arg t "Auto-sync: Merge Firestorm changes" \
-                        --arg head "$PR_BRANCH" \
-                        --arg base "$BASE_BRANCH" \
-                        --arg body "Automatisch erstellt: Änderungen aus Firestorm zusammengeführt." \
-                        '{title: $t, head: $head, base: $base, body: $body}')")
+      - name: Push Änderungen
+        run: |
+          git push origin HEAD
 
-          pr_url=$(echo "$response" | jq -r .html_url // empty)
-          if [ -n "$pr_url" ]; then
-            echo "✅ Pull Request erstellt: $pr_url"
-          else
-            echo "❌ Fehler beim Erstellen des Pull Requests:"
-            echo "$response"
-            exit 1
-          fi
-
+      - name: Cleanup temp branch (lokal)
+        if: always()
+        run: |
+          git branch -D tmp-firestorm || true

@@ -39,37 +39,34 @@ jobs:
             echo "❌ Keine Änderungen gefunden"
           fi
 
-      - name: Merge Änderungen
+      # nur der relevante Schritt ersetzt: Merge Änderungen und Push / PR-Fallback
+      - name: Merge Änderungen und Push PR-Fallback
         id: merge_and_push
         if: steps.check_changes.outputs.changes_detected == 'true'
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}   # -> PAT mit repo+workflow scopes
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           set -euo pipefail
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-          # Merge versuchen
+          # Merge versuchen, bei Konflikten automatische Auflösung:
           if git merge --no-edit "firestorm/${{ steps.get_default_branch.outputs.default_branch }}"; then
-            echo "merge_success=true" >> $GITHUB_OUTPUT
+            echo "merge_ok=true" >> $GITHUB_OUTPUT
           else
-            echo "merge_success=false" >> $GITHUB_OUTPUT
-            echo "Konflikte erkannt — automatische Auflösung starten"
-
-            UNMERGED_FILES=$(git ls-files -u | awk '{print $4}' | sort -u || true)
-
-            for f in $UNMERGED_FILES; do
+            echo "merge_ok=false" >> $GITHUB_OUTPUT
+            UNMERGED=$(git ls-files -u | awk '{print $4}' | sort -u || true)
+            for f in $UNMERGED; do
               if [[ "$f" == .github/workflows/* ]]; then
-                # Für Workflow-Dateien: beziehe die Version von firestorm (theirs)
+                # workflow-Dateien von firestorm übernehmen
                 git checkout --theirs -- "$f" || true
                 git add "$f" || true
               else
-                # Für andere Dateien: behalte eigene Version (ours)
+                # für andere Dateien eigene Version behalten
                 git checkout --ours -- "$f" || true
                 git add "$f" || true
               fi
             done
-
             if git status --porcelain | grep -q '^'; then
               git commit -m "Auto-merge: resolve conflicts (prefer firestorm for workflows)"
             fi
@@ -78,21 +75,18 @@ jobs:
           BASE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
           echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
 
-          # Origin so setzen, dass das PAT für Push verwendet wird
+          # nutze PAT für Push
           git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
 
-          # Direkt pushen; falls abgelehnt (z.B. Branch-Protection), neuer Branch + Push
           if git push origin "$BASE_BRANCH"; then
             echo "pushed=true" >> $GITHUB_OUTPUT
             echo "pr_branch=" >> $GITHUB_OUTPUT
-            echo "✅ Direkt auf $BASE_BRANCH gepusht"
           else
             echo "pushed=false" >> $GITHUB_OUTPUT
             NEW_BRANCH="firestorm-update-$(date +%s)"
             git branch -m "$NEW_BRANCH"
             git push -u origin "$NEW_BRANCH"
             echo "pr_branch=$NEW_BRANCH" >> $GITHUB_OUTPUT
-            echo "ℹ️ Push blockiert; neuer Branch $NEW_BRANCH erstellt und gepusht"
           fi
 
       - name: Starte Build Workflow
@@ -130,3 +124,4 @@ jobs:
             echo "$response"
             exit 1
           fi
+

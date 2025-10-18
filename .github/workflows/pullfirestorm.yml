@@ -2,7 +2,6 @@ name: Auto Pull from Firestorm Repository
 
 permissions:
   contents: write
-  workflows: write
 
 on:
   workflow_dispatch:
@@ -110,4 +109,5 @@ jobs:
             echo "$response"
             exit 1
           fi
+
 
